@@ -8,6 +8,10 @@
 #ifndef _nsStyleContext_h_
 #define _nsStyleContext_h_
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #include "mozilla/Assertions.h"
 #include "mozilla/RestyleLogging.h"
 #include "mozilla/StyleContextSource.h"
@@ -482,6 +486,12 @@ public:
    */
   void SetIneligibleForSharing();
 
+  void PrefetchCachedResetData() {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)mCachedResetData, _MM_HINT_NTA);
+#endif
+  }
+
 #ifdef DEBUG
   void List(FILE* out, int32_t aIndent, bool aListDescendants = true);
   static void AssertStyleStructMaxDifferenceValid();
@@ -724,6 +734,8 @@ private:
 
   RefPtr<nsStyleContext> mParent;
 
+  nsResetStyleData*       mCachedResetData; // Cached reset style data.
+
   // Children are kept in two circularly-linked lists.  The list anchor
   // is not part of the list (null for empty), and we point to the first
   // child.
@@ -764,7 +776,6 @@ private:
   // Since style contexts typically have some inherited data but only sometimes
   // have reset data, we always allocate the mCachedInheritedData, but only
   // sometimes allocate the mCachedResetData.
-  nsResetStyleData*       mCachedResetData; // Cached reset style data.
   nsInheritedStyleData    mCachedInheritedData; // Cached inherited style data
 
   // mBits stores a number of things:

@@ -15,3 +15,21 @@ include $(topsrcdir)/config/rules.mk
 .PHONY: gtestxul
 gtestxul:
 	$(MAKE) -C $(DEPTH) toolkit/library/gtest/target LINK_GTEST_DURING_COMPILE=1
+
+ifneq (,$(filter -DTT_MEMUTIL,$(MOZ_OPTIMIZE_FLAGS)))
+ifeq ($(OS_ARCH)_$(GNU_CC),WINNT_1)
+ifneq ($(OS_ARCH)$(OS_TEST),WINNTx86_64)
+LDFLAGS += -Wl,-u__imp__memset_nontemporal_tt -lportable32
+else
+LDFLAGS += -Wl,-u__imp_memset_nontemporal_tt -lportable64
+endif
+endif
+
+ifdef _MSC_VER
+ifneq (64,$(findstring 64,$(OS_TEST)))
+LDFLAGS += -INCLUDE:"__imp__memset_nontemporal_tt" portable32.lib
+else
+LDFLAGS += -INCLUDE:"__imp_memset_nontemporal_tt" portable64.lib
+endif
+endif
+endif

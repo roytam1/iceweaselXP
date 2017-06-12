@@ -143,6 +143,10 @@
 // objects alive during the unlinking.
 //
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #if !defined(__MINGW32__)
 #ifdef WIN32
 #include <crtdbg.h>
@@ -1032,6 +1036,12 @@ private:
       for (nsPurpleBufferEntry* e = mEntries; e != eEnd; ++e) {
         MOZ_ASSERT(e->mObject, "There should be no null mObject when we iterate over the purple buffer");
         if (!(uintptr_t(e->mObject) & uintptr_t(1)) && e->mObject) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+          nsPurpleBufferEntry* ePref = e + 8;
+          if (ePref < eEnd) {
+            _mm_prefetch((char *)ePref->mRefCnt, _MM_HINT_NTA);
+          }
+#endif
           aVisitor.Visit(aBuffer, e);
         }
       }

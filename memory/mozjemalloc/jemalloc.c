@@ -100,6 +100,10 @@
  *******************************************************************************
  */
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #ifdef MOZ_MEMORY_ANDROID
 #define NO_TLS
 #define _pthread_self() pthread_self()
@@ -230,6 +234,9 @@
 #include <io.h>
 #include <windows.h>
 #include <intrin.h>
+#if defined _M_IX86 || defined _M_AMD64
+#include <smmintrin.h>
+#endif
 
 #pragma warning( disable: 4267 4996 4146 )
 
@@ -245,6 +252,15 @@
 #ifndef NO_TLS
 static unsigned long tlsIndex = 0xffffffff;
 #endif
+
+static BOOL sse4_1_supported = FALSE;
+typedef struct
+{
+  int EAX;
+  int EBX;
+  int ECX;
+  int EDX;
+} CPU_INFO;
 
 #define	__thread
 #define	_pthread_self() __threadid()
@@ -4202,6 +4218,10 @@ arena_malloc_small(arena_t *arena, size_t size, bool zero)
 	}
 	RELEASE_ASSERT(size == bin->reg_size);
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+	_mm_prefetch((char *)bin, _MM_HINT_NTA);
+#endif
+
 #ifdef MALLOC_BALANCE
 	arena_lock_balance(arena);
 #else
@@ -4216,6 +4236,11 @@ arena_malloc_small(arena_t *arena, size_t size, bool zero)
 		malloc_spin_unlock(&arena->lock);
 		return (NULL);
 	}
+
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+	_mm_prefetch((char *)ret, _MM_HINT_NTA);
+	_mm_prefetch((char *)ret + 64, _MM_HINT_NTA);
+#endif
 
 #ifdef MALLOC_STATS
 	bin->stats.nrequests++;
@@ -4254,6 +4279,10 @@ arena_malloc_large(arena_t *arena, size_t size, bool zero)
 		malloc_spin_unlock(&arena->lock);
 		return (NULL);
 	}
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+	_mm_prefetch((char *)ret, _MM_HINT_NTA);
+	_mm_prefetch((char *)ret + 64, _MM_HINT_NTA);
+#endif
 #ifdef MALLOC_STATS
 	arena->stats.nmalloc_large++;
 	arena->stats.allocated_large += size;
@@ -4714,6 +4743,10 @@ arena_dalloc(void *ptr, size_t offset)
 	mapelm = &chunk->map[pageind];
 	RELEASE_ASSERT((mapelm->bits & CHUNK_MAP_ALLOCATED) != 0);
 	if ((mapelm->bits & CHUNK_MAP_LARGE) == 0) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+		arena_run_t *run = (arena_run_t *)(mapelm->bits & ~pagesize_mask);
+		_mm_prefetch((char *)run, _MM_HINT_NTA);
+#endif
 		/* Small allocation. */
 		malloc_spin_lock(&arena->lock);
 		arena_dalloc_small(arena, chunk, ptr, mapelm);
@@ -5567,6 +5600,20 @@ malloc_init_hard(void)
 #ifdef MOZ_MEMORY_WINDOWS
 	/* get a thread local storage index */
 	tlsIndex = TlsAlloc();
+
+	{
+		CPU_INFO CPUInfo;
+
+		__cpuid((int*)&CPUInfo, 0);
+		if (CPUInfo.EAX >= 1)
+		{
+			__cpuid((int*)&CPUInfo, 1);
+			if (CPUInfo.ECX & (1 << 19))
+			{
+				sse4_1_supported = TRUE;
+			}
+		}
+	}
 #endif
 
 	/* Get page size and number of CPUs */
@@ -6908,4 +6955,41 @@ BOOL APIENTRY DllMain(HINSTANCE hModule,
 
   return TRUE;
 }
+#endif
+
+#ifdef MOZ_MEMORY_WINDOWS
+#include <math.h>
+
+double __cdecl floor_tt(double x)
+{
+#if defined _M_IX86 || defined _M_AMD64
+  if (sse4_1_supported)
+  {
+    __m128d xd = _mm_load_sd(&x);
+    double d;
+
+    xd = _mm_floor_sd(xd, xd);
+    _mm_store_sd(&d, xd);
+    return d;
+  }
+#endif
+  return floor(x);
+}
+
+double __cdecl ceil_tt(double x)
+{
+#if defined _M_IX86 || defined _M_AMD64
+  if (sse4_1_supported)
+  {
+    __m128d xd = _mm_load_sd(&x);
+    double d;
+
+    xd = _mm_ceil_sd(xd, xd);
+    _mm_store_sd(&d, xd);
+    return d;
+  }
+#endif
+  return ceil(x);
+}
+
 #endif

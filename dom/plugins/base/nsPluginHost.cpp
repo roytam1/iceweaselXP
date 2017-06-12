@@ -290,6 +290,9 @@ nsPluginHost::nsPluginHost()
   mPluginsDisabled = Preferences::GetBool("plugin.disable", false);
 
   Preferences::AddStrongObserver(this, "plugin.disable");
+  const char *env = PR_GetEnv("MOZILLA_DISABLE_PLUGINS");
+  if (env && env[0])
+    mPluginsDisabled = PR_TRUE;
 
   nsCOMPtr<nsIObserverService> obsService =
     mozilla::services::GetObserverService();
@@ -1841,6 +1844,9 @@ nsPluginHost::GetSpecialType(const nsACString & aMIMEType)
       aMIMEType.LowerCaseEqualsASCII("application/futuresplash") ||
       aMIMEType.LowerCaseEqualsASCII("application/x-shockwave-flash-test")) {
     return eSpecialType_Flash;
+  if (aMIMEType.LowerCaseEqualsASCII("application/pdf")) {
+    return eSpecialType_PDF;
+  }
   }
 
   // Java registers variants of its MIME with parameters, e.g.
@@ -2003,40 +2009,11 @@ struct CompareFilesByTime
 
 } // namespace
 
-bool
-nsPluginHost::ShouldAddPlugin(nsPluginTag* aPluginTag)
-{
-#if defined(XP_WIN) && (defined(__x86_64__) || defined(_M_X64))
-  // On 64-bit Windows, the only plugin we should load is Flash. Use library
-  // filename and MIME type to check.
-  if (StringBeginsWith(aPluginTag->FileName(), NS_LITERAL_CSTRING("NPSWF"), nsCaseInsensitiveCStringComparator()) &&
-      (aPluginTag->HasMimeType(NS_LITERAL_CSTRING("application/x-shockwave-flash")) ||
-       aPluginTag->HasMimeType(NS_LITERAL_CSTRING("application/x-shockwave-flash-test")))) {
-    return true;
-  }
 
-  // Accept the test plugin MIME types, so mochitests still work.
-  if (aPluginTag->HasMimeType(NS_LITERAL_CSTRING("application/x-test")) ||
-      aPluginTag->HasMimeType(NS_LITERAL_CSTRING("application/x-Second-Test")) ||
-      aPluginTag->HasMimeType(NS_LITERAL_CSTRING("application/x-java-test"))) {
-    return true;
-  }
-#ifdef PLUGIN_LOGGING
-  PLUGIN_LOG(PLUGIN_LOG_NORMAL,
-             ("ShouldAddPlugin : Ignoring non-flash plugin library %s\n", aPluginTag->FileName().get()));
-#endif // PLUGIN_LOGGING
-  return false;
-#else
-  return true;
-#endif // defined(XP_WIN) && (defined(__x86_64__) || defined(_M_X64))
-}
 
 void
 nsPluginHost::AddPluginTag(nsPluginTag* aPluginTag)
 {
-  if (!ShouldAddPlugin(aPluginTag)) {
-    return;
-  }
   aPluginTag->mNext = mPlugins;
   mPlugins = aPluginTag;
 
@@ -2052,21 +2029,7 @@ nsPluginHost::AddPluginTag(nsPluginTag* aPluginTag)
   }
 }
 
-static bool
-PluginInfoIsFlash(const nsPluginInfo& info)
-{
-  if (!info.fName || strcmp(info.fName, "Shockwave Flash") != 0) {
-    return false;
-  }
-  for (uint32_t i = 0; i < info.fVariantCount; ++i) {
-    if (info.fMimeTypeArray[i] &&
-        (!strcmp(info.fMimeTypeArray[i], "application/x-shockwave-flash") ||
-         !strcmp(info.fMimeTypeArray[i], "application/x-shockwave-flash-test"))) {
-      return true;
-    }
-  }
-  return false;
-}
+
 
 typedef NS_NPAPIPLUGIN_CALLBACK(char *, NP_GETMIMEDESCRIPTION)(void);
 
@@ -2088,7 +2051,7 @@ nsresult nsPluginHost::ScanPluginsDirectory(nsIFile *pluginsDir,
   ("nsPluginHost::ScanPluginsDirectory dir=%s\n", dirPath.get()));
 #endif
 
-  bool flashOnly = Preferences::GetBool("plugin.load_flash_only", true);
+
 
   nsCOMPtr<nsISimpleEnumerator> iter;
   rv = pluginsDir->GetDirectoryEntries(getter_AddRefs(iter));
@@ -2192,8 +2155,7 @@ nsresult nsPluginHost::ScanPluginsDirectory(nsIFile *pluginsDir,
         res = pluginFile.GetPluginInfo(info, &library);
       }
       // if we don't have mime type don't proceed, this is not a plugin
-      if (NS_FAILED(res) || !info.fMimeTypeArray ||
-          (flashOnly && !PluginInfoIsFlash(info))) {
+      if (NS_FAILED(res) || !info.fMimeTypeArray) {
         RefPtr<nsInvalidPluginTag> invalidTag = new nsInvalidPluginTag(filePath.get(),
                                                                          fileModTime);
         pluginFile.FreePluginInfo(info);
@@ -2808,7 +2770,7 @@ nsPluginHost::WritePluginInfo()
     return rv;
   }
 
-  bool flashOnly = Preferences::GetBool("plugin.load_flash_only", true);
+  bool flashOnly = false;
 
   PR_fprintf(fd, "Generated File. Do not edit.\n");
 
@@ -3012,7 +2974,7 @@ nsPluginHost::ReadPluginInfo()
 
   // If we're reading an old registry, ignore it
   // If we flipped the flash-only pref, ignore it
-  bool flashOnly = Preferences::GetBool("plugin.load_flash_only", true);
+  bool flashOnly = false;
   nsAutoCString expectedVersion(kPluginRegistryVersion);
   expectedVersion.Append(flashOnly ? 't' : 'f');
 
@@ -3155,9 +3117,7 @@ nsPluginHost::ReadPluginInfo()
     MOZ_LOG(nsPluginLogging::gPluginLog, PLUGIN_LOG_BASIC,
       ("LoadCachedPluginsInfo : Loading Cached plugininfo for %s\n", tag->FileName().get()));
 
-    if (!ShouldAddPlugin(tag)) {
-      continue;
-    }
+
 
     tag->mNext = mCachedPlugins;
     mCachedPlugins = tag;

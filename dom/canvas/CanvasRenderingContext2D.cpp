@@ -3,6 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "ImageUtils.h"
+
 #include "CanvasRenderingContext2D.h"
 
 #include "mozilla/gfx/Helpers.h"
@@ -5618,53 +5620,7 @@ CanvasRenderingContext2D::GetImageDataArray(JSContext* aCx,
 
   uint8_t* dst = data + dstWriteRect.y * (aWidth * 4) + dstWriteRect.x * 4;
 
-  if (mOpaque) {
-    for (int32_t j = 0; j < dstWriteRect.height; ++j) {
-      for (int32_t i = 0; i < dstWriteRect.width; ++i) {
-        // XXX Is there some useful swizzle MMX we can use here?
-#if MOZ_LITTLE_ENDIAN
-        uint8_t b = *src++;
-        uint8_t g = *src++;
-        uint8_t r = *src++;
-        src++;
-#else
-        src++;
-        uint8_t r = *src++;
-        uint8_t g = *src++;
-        uint8_t b = *src++;
-#endif
-        *dst++ = r;
-        *dst++ = g;
-        *dst++ = b;
-        *dst++ = 255;
-      }
-      src += srcStride - (dstWriteRect.width * 4);
-      dst += (aWidth * 4) - (dstWriteRect.width * 4);
-    }
-  } else
-  for (int32_t j = 0; j < dstWriteRect.height; ++j) {
-    for (int32_t i = 0; i < dstWriteRect.width; ++i) {
-      // XXX Is there some useful swizzle MMX we can use here?
-#if MOZ_LITTLE_ENDIAN
-      uint8_t b = *src++;
-      uint8_t g = *src++;
-      uint8_t r = *src++;
-      uint8_t a = *src++;
-#else
-      uint8_t a = *src++;
-      uint8_t r = *src++;
-      uint8_t g = *src++;
-      uint8_t b = *src++;
-#endif
-      // Convert to non-premultiplied color
-      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + r];
-      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + g];
-      *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + b];
-      *dst++ = a;
-    }
-    src += srcStride - (dstWriteRect.width * 4);
-    dst += (aWidth * 4) - (dstWriteRect.width * 4);
-  }
+  GetImageData_component(src, dst, dstWriteRect.width, dstWriteRect.height, srcStride, aWidth * 4);
 
   if (readback) {
     readback->Unmap();
@@ -5809,9 +5765,8 @@ CanvasRenderingContext2D::PutImageData_explicit(int32_t aX, int32_t aY, uint32_t
 
   uint32_t copyX = dirtyRect.x - aX;
   uint32_t copyY = dirtyRect.y - aY;
-  //uint8_t *src = aArray->Data();
+  uint8_t *src = aArray->Data();
   uint8_t *dst = imgsurf->Data();
-  uint8_t* srcLine = aArray->Data() + copyY * (aW * 4) + copyX * 4;
   // For opaque canvases, we must still premultiply the RGB components, but write the alpha as opaque.
   uint8_t alphaMask = mOpaque ? 255 : 0;
 #if 0
@@ -5820,29 +5775,7 @@ CanvasRenderingContext2D::PutImageData_explicit(int32_t aX, int32_t aY, uint32_t
        copyX, copyY, copyWidth, copyHeight,
        x, y, w, h);
 #endif
-  for (uint32_t j = 0; j < copyHeight; j++) {
-    uint8_t *src = srcLine;
-    for (uint32_t i = 0; i < copyWidth; i++) {
-      uint8_t r = *src++;
-      uint8_t g = *src++;
-      uint8_t b = *src++;
-      uint8_t a = *src++;
-
-      // Convert to premultiplied color (losslessly if the input came from getImageData)
-#if MOZ_LITTLE_ENDIAN
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
-      *dst++ = a | alphaMask;
-#else
-      *dst++ = a | alphaMask;
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
-      *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
-#endif
-    }
-    srcLine += aW * 4;
-  }
+  PutImageData_component(src, dst, copyWidth, copyHeight, copyWidth * 4, copyWidth * 4, alphaMask);
 
   // The canvas spec says that the current path, transformation matrix, shadow attributes,
   // global alpha, the clipping region, and global composition operator must not affect the

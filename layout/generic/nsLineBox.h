@@ -776,6 +776,11 @@ class nsLineList_iterator {
       return rv;
     }
 
+    pointer peekNext()
+    {
+      return static_cast<pointer>(mCurrent->_mNext);
+    }
+
     iterator_self_type& operator--()
     {
       mCurrent = mCurrent->_mPrev;

@@ -27,6 +27,10 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "mozilla/SSE.h"
+
+#include <string.h>
+
 #ifdef MOZ_ENABLE_FREETYPE
 #include <string>
 #endif
@@ -1211,8 +1215,12 @@ public:
    * FillRect, try to integrate the translation into FillRect's aRect
    * argument's x/y offset.
    */
-  virtual void SetTransform(const Matrix &aTransform)
-    { mTransform = aTransform; mTransformDirty = true; }
+  virtual void SetTransform(const Matrix &aTransform) {
+    if (memcmp(&mTransform, &aTransform, sizeof(Matrix)) != 0) {
+      mTransform = aTransform;
+      mTransformDirty = true;
+    }
+  }
 
   inline void ConcatTransform(const Matrix &aTransform)
     { SetTransform(aTransform * Matrix(GetTransform())); }
@@ -1345,7 +1353,7 @@ public:
   static void Init(const Config& aConfig);
   static void ShutDown();
 
-  static bool HasSSE2();
+  static bool HasSSE2() { return supports_sse2(); }
 
   /**
    * Returns false if any of the following are true:

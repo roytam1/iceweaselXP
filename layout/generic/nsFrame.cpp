@@ -6,6 +6,10 @@
 
 /* base class of all rendering objects */
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #include "nsFrame.h"
 
 #include <stdarg.h>
@@ -1143,8 +1147,14 @@ nsIFrame::GetMarginRectRelativeToSelf() const
 bool
 nsIFrame::IsTransformed() const
 {
+  return IsTransformed(StyleDisplay());
+}
+
+bool
+nsIFrame::IsTransformed(const nsStyleDisplay* aDisp) const
+{
   return ((mState & NS_FRAME_MAY_BE_TRANSFORMED) &&
-          (StyleDisplay()->HasTransform(this) ||
+          (aDisp->HasTransform(this) ||
            IsSVGTransformed() ||
            (mContent &&
             nsLayoutUtils::HasAnimationOfProperty(this,
@@ -1156,9 +1166,15 @@ nsIFrame::IsTransformed() const
 bool
 nsIFrame::HasOpacityInternal(float aThreshold) const
 {
+  return HasOpacityInternal(StyleDisplay(), aThreshold);
+}
+
+bool
+nsIFrame::HasOpacityInternal(const nsStyleDisplay* aDisp, float aThreshold) const
+{
   MOZ_ASSERT(0.0 <= aThreshold && aThreshold <= 1.0, "Invalid argument");
   return StyleEffects()->mOpacity < aThreshold ||
-         (StyleDisplay()->mWillChangeBitField & NS_STYLE_WILL_CHANGE_OPACITY) ||
+         (aDisp->mWillChangeBitField & NS_STYLE_WILL_CHANGE_OPACITY) ||
          (mContent &&
            nsLayoutUtils::HasAnimationOfProperty(this, eCSSProperty_opacity) &&
            mContent->GetPrimaryFrame() == this);
@@ -1915,6 +1931,10 @@ nsFrame::DisplayBorderBackgroundOutline(nsDisplayListBuilder*   aBuilder,
     return;
   }
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  _mm_prefetch((char *)&StyleBorder()->GetComputedBorder(), _MM_HINT_NTA);
+#endif
+
   nsCSSShadowArray* shadows = StyleEffects()->mBoxShadow;
   if (shadows && shadows->HasShadowWithInset(false)) {
     aLists.BorderBackground()->AppendNewToTop(new (aBuilder)
@@ -2005,7 +2025,7 @@ ApplyOverflowClipping(nsDisplayListBuilder* aBuilder,
   nsRect clipRect;
   bool haveRadii = false;
   nscoord radii[8];
-  if (aFrame->StyleDisplay()->mOverflowClipBox ==
+  if (aDisp->mOverflowClipBox ==
         NS_STYLE_OVERFLOW_CLIP_BOX_PADDING_BOX) {
     clipRect = aFrame->GetPaddingRectRelativeToSelf() +
       aBuilder->ToReferenceFrame(aFrame);
@@ -2260,7 +2280,7 @@ nsIFrame::BuildDisplayListForStackingContext(nsDisplayListBuilder* aBuilder,
   // layer (for async animations), see
   // nsSVGIntegrationsUtils::PaintMaskAndClipPath or
   // nsSVGIntegrationsUtils::PaintFilter.
-  bool useOpacity = HasVisualOpacity() && !nsSVGUtils::CanOptimizeOpacity(this) &&
+  bool useOpacity = HasVisualOpacity(disp) && !nsSVGUtils::CanOptimizeOpacity(this) &&
                     (!usingSVGEffects || nsDisplayOpacity::NeedsActiveLayer(aBuilder, this));
   bool useBlendMode = effects->mMixBlendMode != NS_STYLE_BLEND_NORMAL;
   bool useStickyPosition = disp->mPosition == NS_STYLE_POSITION_STICKY &&
@@ -2691,6 +2711,11 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
   if (child->GetStateBits() & NS_FRAME_TOO_DEEP_IN_FRAME_TREE)
     return;
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  nsStyleContext *childStyleContext = child->StyleContext();
+  _mm_prefetch((char *)childStyleContext, _MM_HINT_NTA);
+#endif
+
   bool isSVG = (child->GetStateBits() & NS_FRAME_SVG_LAYOUT);
 
   // true if this is a real or pseudo stacking context
@@ -2750,6 +2775,11 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
     pseudoStackingContext = true;
   }
 
+  const nsStyleDisplay* ourDisp = StyleDisplay();
+  nsIFrame* parent = child->GetParent();
+  const nsStyleDisplay* parentDisp =
+    parent == this ? ourDisp : parent->StyleDisplay();
+
   NS_ASSERTION(childType != nsGkAtoms::placeholderFrame,
                "Should have dealt with placeholders already");
   if (aBuilder->GetSelectedFramesOnly() &&
@@ -2757,6 +2787,10 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
       !aChild->IsSelected()) {
     return;
   }
+
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  childStyleContext->PrefetchCachedResetData();
+#endif
 
   if (aBuilder->GetIncludeAllOutOfFlows() &&
       (child->GetStateBits() & NS_FRAME_OUT_OF_FLOW)) {
@@ -2788,9 +2822,15 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
     }
   }
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  nsIContent* childContent = child->GetContent();
+  if (childContent) {
+    _mm_prefetch((char *)childContent, _MM_HINT_NTA);
+  }
+#endif
+
   // XXX need to have inline-block and inline-table set pseudoStackingContext
   
-  const nsStyleDisplay* ourDisp = StyleDisplay();
   // REVIEW: Taken from nsBoxFrame::Paint
   // Don't paint our children if the theme object is a leaf.
   if (IsThemed(ourDisp) &&
@@ -2809,8 +2849,8 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
   const nsStyleDisplay* disp = child->StyleDisplay();
   const nsStyleEffects* effects = child->StyleEffects();
   const nsStylePosition* pos = child->StylePosition();
-  bool isVisuallyAtomic = child->HasOpacity()
-    || child->IsTransformed()
+  bool isVisuallyAtomic = child->HasOpacity(disp)
+    || child->IsTransformed(disp)
     // strictly speaking, 'perspective' doesn't require visual atomicity,
     // but the spec says it acts like the rest of these
     || disp->mChildPerspective.GetUnit() == eStyleUnit_Coord
@@ -2824,6 +2864,14 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
      (disp->mWillChangeBitField & NS_STYLE_WILL_CHANGE_STACKING_CONTEXT) ||
      disp->mIsolation != NS_STYLE_ISOLATION_AUTO ||
      isVisuallyAtomic || (aFlags & DISPLAY_CHILD_FORCE_STACKING_CONTEXT);
+
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  Element *childElement = nullptr;
+  if (childContent && childContent->IsElement()) {
+    childElement = childContent->AsElement();
+    childElement->PrefetchAttrsAndChildren();
+  }
+#endif
 
   if (isVisuallyAtomic || isPositioned || (!isSVG && disp->IsFloating(child)) ||
       ((effects->mClipFlags & NS_STYLE_CLIP_RECT) &&
@@ -2865,6 +2913,12 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
     clipState.SetScrollClipForContainingBlockDescendants(aBuilder, nullptr);
   }
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  if (childElement) {
+    childElement->PrefetchAttrAndChildArrayImpl();
+  }
+#endif
+
   // Setup clipping for the parent's overflow:-moz-hidden-unscrollable,
   // or overflow:hidden on elements that don't support scrolling (and therefore
   // don't create nsHTML/XULScrollFrame). This clipping needs to not clip
@@ -2873,9 +2927,6 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
   // Don't use overflowClip to restrict the dirty rect, since some of the
   // descendants may not be clipped by it. Even if we end up with unnecessary
   // display items, they'll be pruned during ComputeVisibility.
-  nsIFrame* parent = child->GetParent();
-  const nsStyleDisplay* parentDisp =
-    parent == this ? ourDisp : parent->StyleDisplay();
   ApplyOverflowClipping(aBuilder, parent, parentDisp, clipState);
 
   nsDisplayList list;

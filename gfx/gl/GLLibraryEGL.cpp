@@ -334,6 +334,10 @@ GLLibraryEGL::EnsureInitialized(bool forceAccel, nsACString* const out_failureId
                 break;
 #endif
 
+#ifdef MOZ_D3DCOMPILER_XP_DLL
+            if (LoadLibraryForEGLOnWindows(NS_LITERAL_STRING(NS_STRINGIFY(MOZ_D3DCOMPILER_XP_DLL))))
+                break;
+#endif
             MOZ_ASSERT(false, "d3dcompiler DLL loading failed.");
         } while (false);
 

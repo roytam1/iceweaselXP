@@ -1283,6 +1283,10 @@ public:
 
 };
 
+#ifdef _MSC_VER
+#pragma optimize("g", off)
+#endif
+
 // static
 bool
 XPCWrappedNative::CallMethod(XPCCallContext& ccx,
@@ -1295,6 +1299,10 @@ XPCWrappedNative::CallMethod(XPCCallContext& ccx,
 
     return CallMethodHelper(ccx).Call();
 }
+
+#ifdef _MSC_VER
+#pragma optimize("", on)
+#endif
 
 bool
 CallMethodHelper::Call()

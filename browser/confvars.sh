@@ -14,7 +14,7 @@ if test "$OS_ARCH" = "WINNT" -o \
 fi
 
 if test "$OS_ARCH" = "WINNT"; then
-  MOZ_MAINTENANCE_SERVICE=1
+  MOZ_MAINTENANCE_SERVICE=
   if ! test "$HAVE_64BIT_BUILD"; then
     if test "$MOZ_UPDATE_CHANNEL" = "nightly" -o \
             "$MOZ_UPDATE_CHANNEL" = "aurora" -o \
@@ -34,8 +34,9 @@ if test "$NIGHTLY_BUILD"; then
 fi
 
 # Enable building ./signmar and running libmar signature tests
-MOZ_ENABLE_SIGNMAR=1
-
+MOZ_ENABLE_SIGNMAR=
+MOZ_SERVICES_HEALTHREPORT=
+MOZ_SAFE_BROWSING=
 MOZ_APP_VERSION=$FIREFOX_VERSION
 MOZ_APP_VERSION_DISPLAY=$FIREFOX_VERSION_DISPLAY
 MOZ_EXTENSIONS_DEFAULT=" gio"
@@ -56,11 +57,13 @@ ACCEPTED_MAR_CHANNEL_IDS=firefox-mozilla-release
 MAR_CHANNEL_ID=firefox-mozilla-release
 MOZ_PROFILE_MIGRATOR=1
 MOZ_WEBGL_CONFORMANT=1
+# Disable navigator.mozPay
+MOZ_PAY=
 MOZ_JSDOWNLOADS=1
 MOZ_RUST_MP4PARSE=1
 
 # Enable checking that add-ons are signed by the trusted root
-MOZ_ADDON_SIGNING=1
+MOZ_ADDON_SIGNING=
 
 # Include the DevTools client, not just the server (which is the default)
 MOZ_DEVTOOLS=all

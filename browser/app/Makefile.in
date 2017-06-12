@@ -101,3 +101,21 @@ tools repackage:: $(DIST)/bin/$(MOZ_APP_NAME)
 	ln -s ../../../../Library/LaunchServices/org.mozilla.updater $(dist_dest)/Contents/MacOS/updater.app/Contents/MacOS/org.mozilla.updater
 	printf APPLMOZB > $(dist_dest)/Contents/PkgInfo
 endif
+
+ifneq (,$(filter -DTT_MEMUTIL,$(MOZ_OPTIMIZE_FLAGS)))
+ifeq ($(OS_ARCH)_$(GNU_CC),WINNT_1)
+ifneq ($(OS_ARCH)$(OS_TEST),WINNTx86_64)
+LDFLAGS += -Wl,-u__imp__GetCpuFeature_tt -lportable32
+else
+LDFLAGS += -Wl,-u__imp_GetCpuFeature_tt -lportable64
+endif
+endif
+
+ifdef _MSC_VER
+ifneq (64,$(findstring 64,$(OS_TEST)))
+LDFLAGS += -INCLUDE:"__imp__GetCpuFeature_tt" portable32.lib
+else
+LDFLAGS += -INCLUDE:"__imp_GetCpuFeature_tt" portable64.lib
+endif
+endif
+endif

@@ -31,8 +31,8 @@ browser.jar:
   skin/classic/browser/privatebrowsing-mask-tabstrip.png
   skin/classic/browser/privatebrowsing-mask-tabstrip-win7.png
   skin/classic/browser/privatebrowsing-mask-titlebar.png
+  skin/classic/browser/privatebrowsing-mask-titlebar-XPVista7-tall.png
   skin/classic/browser/privatebrowsing-mask-titlebar-win7.png
-  skin/classic/browser/privatebrowsing-mask-titlebar-win7-tall.png
   skin/classic/browser/reload-stop-go.png
   skin/classic/browser/reload-stop-go@2x.png
   skin/classic/browser/reload-stop-go-win7.png
@@ -46,6 +46,7 @@ browser.jar:
   skin/classic/browser/Toolbar-win7@2x.png
   skin/classic/browser/Toolbar-inverted.png
   skin/classic/browser/Toolbar-inverted@2x.png
+  skin/classic/browser/Toolbar-lunaSilver.png
   skin/classic/browser/Toolbar-win8.png
   skin/classic/browser/Toolbar-win8@2x.png
   skin/classic/browser/toolbarbutton-dropdown-arrow-win7.png

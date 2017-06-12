@@ -1564,6 +1564,7 @@ public:
    * the frame has transform animations.
    */
   bool IsTransformed() const;
+  bool IsTransformed(const nsStyleDisplay* aDisp) const;
 
   /**
    * Returns true if the frame is translucent or the frame has opacity
@@ -1572,6 +1573,10 @@ public:
   bool HasOpacity() const
   {
     return HasOpacityInternal(1.0f);
+  }
+  bool HasOpacity(const nsStyleDisplay* aDisp) const
+  {
+    return HasOpacityInternal(aDisp, 1.0f);
   }
   /**
    * Returns true if the frame is translucent for display purposes.
@@ -1582,6 +1587,13 @@ public:
     // optimization aimed at Web content which use opacity:0.99 as a hint for
     // creating a stacking context only.
     return HasOpacityInternal(0.99f);
+  }
+  bool HasVisualOpacity(const nsStyleDisplay* aDisp) const
+  {
+    // Treat an opacity value of 0.99 and above as opaque.  This is an
+    // optimization aimed at Web content which use opacity:0.99 as a hint for
+    // creating a stacking context only.
+    return HasOpacityInternal(aDisp, 0.99f);
   }
 
    /**
@@ -3722,6 +3734,7 @@ private:
   static nsIFrame* MergeSort(nsIFrame *aSource);
 
   bool HasOpacityInternal(float aThreshold) const;
+  bool HasOpacityInternal(const nsStyleDisplay* aDisp, float aThreshold) const;
 
 #ifdef DEBUG_FRAME_DUMP
 public:

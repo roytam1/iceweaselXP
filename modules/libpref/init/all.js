@@ -196,6 +196,7 @@ pref("dom.requestIdleCallback.enabled", true);
 pref("dom.requestIdleCallback.enabled", false);
 #endif
 
+#ifdef MOZ_GAMEPAD
 // Whether the Gamepad API is enabled
 pref("dom.gamepad.enabled", true);
 pref("dom.gamepad.test.enabled", false);
@@ -205,6 +206,7 @@ pref("dom.gamepad.non_standard_events.enabled", false);
 pref("dom.gamepad.non_standard_events.enabled", true);
 #endif
 pref("dom.gamepad.extensions.enabled", false);
+#endif
 
 // Whether the KeyboardEvent.code is enabled
 pref("dom.keyboardevent.code.enabled", true);
@@ -785,8 +787,8 @@ pref("gfx.font_rendering.opentype_svg.enabled", true);
 #ifdef XP_WIN
 // comma separated list of backends to use in order of preference
 // e.g., pref("gfx.canvas.azure.backends", "direct2d,skia,cairo");
-pref("gfx.canvas.azure.backends", "direct2d1.1,skia,cairo");
-pref("gfx.content.azure.backends", "direct2d1.1,skia,cairo");
+pref("gfx.canvas.azure.backends", "direct2d1.1,cairo,skia");
+pref("gfx.content.azure.backends", "direct2d1.1,cairo,skia");
 #else
 #ifdef XP_MACOSX
 pref("gfx.content.azure.backends", "skia");
@@ -2123,8 +2125,8 @@ pref("intl.hyphenation-alias.sh-*", "sh");
 pref("intl.hyphenation-alias.sr-*", "sh");
 pref("intl.hyphenation-alias.bs-*", "sh");
 
-// Norwegian has two forms, Bokmål and Nynorsk, with "no" as a macrolanguage encompassing both.
-// For "no", we'll alias to "nb" (Bokmål) as that is the more widely used written form.
+// Norwegian has two forms, Bokm氓l and Nynorsk, with "no" as a macrolanguage encompassing both.
+// For "no", we'll alias to "nb" (Bokm氓l) as that is the more widely used written form.
 pref("intl.hyphenation-alias.no", "nb");
 pref("intl.hyphenation-alias.no-*", "nb");
 pref("intl.hyphenation-alias.nb-*", "nb");
@@ -3575,7 +3577,7 @@ pref("intl.imm.vertical_writing.always_assume_not_supported", false);
 // We cannot retrieve active IME name with IMM32 API if a TIP of TSF is active.
 // This pref can specify active IME name when Japanese TIP is active.
 // For example:
-//   Google Japanese Input: "Google 日本語入力 IMM32 モジュール"
+//   Google Japanese Input: "Google 鏃ユ湰瑾炲叆鍔� IMM32 銉€偢銉ャ兗銉�"
 //   ATOK 2011: "ATOK 2011" (similarly, e.g., ATOK 2013 is "ATOK 2013")
 pref("intl.imm.japanese.assume_active_tip_name_as", "");
 
@@ -4504,6 +4506,9 @@ pref("image.mem.surfacecache.discard_factor", 1);
 // How many threads we'll use for multithreaded decoding. If < 0, will be
 // automatically determined based on the system's number of cores.
 pref("image.multithreaded_decoding.limit", -1);
+
+// Whether we attempt to decode WebP images or not.
+pref("image.webp.enabled", true);
 
 // Limit for the canvas image cache. 0 means we don't limit the size of the
 // cache.
@@ -5596,3 +5601,6 @@ pref("prompts.authentication_dialog_abuse_limit", 3);
 // To enable the DOM implementation, turn on "dom.storageManager.enabled"
 pref("browser.storageManager.enabled", false);
 pref("dom.IntersectionObserver.enabled", false);
+
+// Add by adonais.
+pref("datareporting.healthreport.service.firstRun", false);

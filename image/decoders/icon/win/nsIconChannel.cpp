@@ -530,6 +530,9 @@ CreateBitmapInfo(BITMAPINFOHEADER* aHeader, size_t aColorTableSize)
   return bmi;
 }
 
+#ifdef _MSC_VER
+#pragma function(memcpy)
+#endif
 nsresult
 nsIconChannel::MakeInputStream(nsIInputStream** _retval, bool aNonBlocking)
 {
@@ -673,6 +676,9 @@ nsIconChannel::MakeInputStream(nsIInputStream** _retval, bool aNonBlocking)
   }
   return rv;
 }
+#ifdef _MSC_VER
+#pragma intrinsic(memcpy)
+#endif
 
 NS_IMETHODIMP
 nsIconChannel::GetContentType(nsACString& aContentType)

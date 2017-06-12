@@ -30,6 +30,7 @@
 #include "CounterStyleManager.h"
 #include <algorithm>
 #include "mozilla/dom/HTMLInputElement.h"
+#include "mozilla/Attributes.h"
 
 #ifdef DEBUG
 #undef NOISY_VERTICAL_ALIGN
@@ -1215,6 +1216,7 @@ ReflowInput::CalculateBorderPaddingMargin(
  * Returns true iff a pre-order traversal of the normal child
  * frames rooted at aFrame finds no non-empty frame before aDescendant.
  */
+MOZ_ALWAYS_INLINE
 static bool AreAllEarlierInFlowFramesEmpty(nsIFrame* aFrame,
   nsIFrame* aDescendant, bool* aFound) {
   if (aFrame == aDescendant) {

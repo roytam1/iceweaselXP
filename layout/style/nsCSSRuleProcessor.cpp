@@ -9,6 +9,10 @@
  * matching and cascading
  */
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #define PL_ARENA_CONST_ALIGN_MASK 7
 // We want page-sized arenas so there's no fragmentation involved.
 // Including plarena.h must come first to avoid it being included by some
@@ -1742,6 +1746,9 @@ static bool SelectorMatches(Element* aElement,
   // test for pseudo class match
   for (nsPseudoClassList* pseudoClass = aSelector->mPseudoClassList;
        pseudoClass; pseudoClass = pseudoClass->mNext) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)pseudoClass->mNext, _MM_HINT_NTA);
+#endif
     auto idx = static_cast<CSSPseudoClassTypeBase>(pseudoClass->mType);
     EventStates statesToCheck = sPseudoClassStates[idx];
     if (!statesToCheck.IsEmpty()) {
@@ -2646,6 +2653,12 @@ nsCSSRuleProcessor::HasStateDependentStyle(ElementDependentRuleProcessorData* aD
         selectorForPseudo = selector;
         selector = selector->mNext;
       }
+
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+      if (iter + 1 != end) {
+        _mm_prefetch((char *)(iter + 1)->mSelector, _MM_HINT_NTA);
+      }
+#endif
 
       nsRestyleHint possibleChange = RestyleHintForOp(selector->mOperator);
       SelectorMatchesFlags selectorFlags = SelectorMatchesFlags::UNKNOWN;

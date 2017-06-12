@@ -594,6 +594,11 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),android)
 CHECK_MOZGLUE_ORDER = @$(TOOLCHAIN_PREFIX)readelf -d $(1) | grep NEEDED | awk '{ libs[$$NF] = ++n } END { if (libs["[libmozglue.so]"] && libs["[libc.so]"] < libs["[libmozglue.so]"]) { print "libmozglue.so must be linked before libc.so"; exit 1 } }'
 endif
 
+ifdef _MSC_VER
+define CHECK_BINARY
+echo MSVC_BUILD
+endef
+else
 define CHECK_BINARY
 $(call CHECK_GLIBC,$(1))
 $(call CHECK_STDCXX,$(1))
@@ -601,6 +606,7 @@ $(call CHECK_TEXTREL,$(1))
 $(call LOCAL_CHECKS,$(1))
 $(call CHECK_MOZGLUE_ORDER,$(1))
 endef
+endif
 
 # autoconf.mk sets OBJ_SUFFIX to an error to avoid use before including
 # this file

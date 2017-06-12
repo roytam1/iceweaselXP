@@ -132,8 +132,12 @@ MOZ_TOOL_VARIABLES
 dnl Special win32 checks
 dnl ========================================================
 
-# Target the Windows 8.1 SDK by default
-WINVER=502
+if test "$OS_ARCH:$CPU_ARCH" = "WINNT:x86_64"; then
+    # Target the Windows 8.1 SDK by default
+    WINVER=601
+else
+    WINVER=502
+fi
 
 case "$target" in
 *-mingw*)
@@ -194,6 +198,11 @@ case "$target" in
 
             # -Zc:sizedDealloc- disables C++14 global sized deallocation (see bug 1160146)
             CXXFLAGS="$CXXFLAGS -Zc:sizedDealloc-"
+            # Disable C++11 thread-safe statics due to crashes on XP (bug 1204752)
+            # See https://connect.microsoft.com/VisualStudio/feedback/details/1789709/visual-c-2015-runtime-broken-on-windows-server-2003-c-11-magic-statics
+	    if test "$CPU_ARCH" = "x86"; then
+                CXXFLAGS="$CXXFLAGS -Zc:threadSafeInit-"
+	    fi
             ;;
         esac
         AC_SUBST(MSVS_VERSION)
@@ -252,8 +261,13 @@ case "$target" in
 
     AC_DEFINE_UNQUOTED(WINVER,0x$WINVER)
     AC_DEFINE_UNQUOTED(_WIN32_WINNT,0x$WINVER)
-    # Require OS features provided by IE 6.0 SP2 (XP SP2)
-    AC_DEFINE_UNQUOTED(_WIN32_IE,0x0603)
+    if test "$OS_ARCH:$CPU_ARCH" = "WINNT:x86_64"; then
+        # Require OS features provided by IE 8.0 (Win7)
+        AC_DEFINE_UNQUOTED(_WIN32_IE,0x0800)
+    else
+        # Require OS features provided by IE 6.0 SP2 (XP SP2)
+        AC_DEFINE_UNQUOTED(_WIN32_IE,0x0603)
+    fi
 
     ;;
 esac
@@ -686,7 +700,12 @@ case "$target" in
         IMPORT_LIB_SUFFIX=lib
         MKSHLIB='$(LINK) -NOLOGO -DLL -OUT:$@ -PDB:$(LINK_PDBFILE) $(DSO_LDOPTS)'
         MKCSHLIB='$(LINK) -NOLOGO -DLL -OUT:$@ -PDB:$(LINK_PDBFILE) $(DSO_LDOPTS)'
-        WIN32_SUBSYSTEM_VERSION=6.01
+        dnl Set subsystem version 5 for Windows XP.
+        if test "$CPU_ARCH" = "x86"; then
+            WIN32_SUBSYSTEM_VERSION=5.01
+        else
+            WIN32_SUBSYSTEM_VERSION=6.01
+        fi
         WIN32_CONSOLE_EXE_LDFLAGS=-SUBSYSTEM:CONSOLE,$WIN32_SUBSYSTEM_VERSION
         WIN32_GUI_EXE_LDFLAGS=-SUBSYSTEM:WINDOWS,$WIN32_SUBSYSTEM_VERSION
         DSO_LDOPTS=-SUBSYSTEM:WINDOWS,$WIN32_SUBSYSTEM_VERSION
@@ -806,8 +825,12 @@ case "$target" in
             LDFLAGS="$LDFLAGS -RELEASE"
         fi
         dnl For profile-guided optimization
-        PROFILE_GEN_CFLAGS="-GL"
+        PROFILE_GEN_CFLAGS="-GL -DMSVC_PGO_ENABLED"
         PROFILE_GEN_LDFLAGS="-LTCG:PGINSTRUMENT"
+        if test "$_CC_SUITE" -ge "12"; then
+            dnl Run PGO profiling in safe mode
+            PROFILE_GEN_LDFLAGS="$PROFILE_GEN_LDFLAGS -PogoSafeMode"
+        fi
         dnl XXX: PGO builds can fail with warnings treated as errors,
         dnl specifically "no profile data available" appears to be
         dnl treated as an error sometimes. This might be a consequence
@@ -815,7 +838,7 @@ case "$target" in
         dnl with the linker doing most of the work in the whole-program
         dnl optimization/PGO case. I think it's probably a compiler bug,
         dnl but we work around it here.
-        PROFILE_USE_CFLAGS="-GL -wd4624 -wd4952"
+        PROFILE_USE_CFLAGS="-GL -wd4624 -wd4952 -DMSVC_PGO_ENABLED"
         dnl XXX: should be -LTCG:PGOPTIMIZE, but that fails on libxul.
         dnl Probably also a compiler bug, but what can you do?
         PROFILE_USE_LDFLAGS="-LTCG:PGUPDATE"

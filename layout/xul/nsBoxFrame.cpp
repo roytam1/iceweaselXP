@@ -31,6 +31,10 @@
 // any number of syblings around the box. Basically any children in the reflow chain must have their caches cleared
 // so when asked for there current size they can relayout themselves. 
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #include "nsBoxFrame.h"
 
 #include "gfxUtils.h"
@@ -1313,6 +1317,10 @@ nsBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
                              const nsRect&           aDirtyRect,
                              const nsDisplayListSet& aLists)
 {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  _mm_prefetch((char *)StyleVisibility(), _MM_HINT_NTA);
+#endif
+
   bool forceLayer = false;
 
   if (GetContent()->IsXULElement()) {
@@ -1331,6 +1339,10 @@ nsBoxFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
 
   nsDisplayListCollection tempLists;
   const nsDisplayListSet& destination = forceLayer ? tempLists : aLists;
+
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+  _mm_prefetch((char *)mFrames.FirstChild(), _MM_HINT_NTA);
+#endif
 
   DisplayBorderBackgroundOutline(aBuilder, destination);
 
@@ -1379,6 +1391,9 @@ nsBoxFrame::BuildDisplayListForChildren(nsDisplayListBuilder*   aBuilder,
   nsDisplayListSet set(aLists, aLists.BlockBorderBackgrounds());
   // The children should be in the right order
   while (kid) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)kid->GetNextSibling(), _MM_HINT_T0);
+#endif
     BuildDisplayListForChild(aBuilder, kid, aDirtyRect, set);
     kid = kid->GetNextSibling();
   }

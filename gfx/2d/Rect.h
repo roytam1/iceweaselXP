@@ -13,6 +13,10 @@
 #include "Tools.h"
 #include "mozilla/Maybe.h"
 
+#include "mozilla/Alignment.h"
+#include "mozilla/SSE.h"
+#include <smmintrin.h>
+
 #include <cmath>
 
 namespace mozilla {
@@ -93,6 +97,9 @@ struct IntRectTyped :
     IntRectTyped() : Super() {}
     IntRectTyped(const IntPointTyped<units>& aPos, const IntSizeTyped<units>& aSize) :
         Super(aPos, aSize) {}
+
+    IntRectTyped(const __m128i& a128i) :
+        Super(a128i) {}
 
     IntRectTyped(ToInt aX, ToInt aY, ToInt aWidth, ToInt aHeight) :
         Super(aX.value, aY.value, aWidth.value, aHeight.value) {}

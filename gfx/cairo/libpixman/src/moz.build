@@ -161,3 +161,22 @@ if CONFIG['CLANG_CL']:
 # See bug 386897.
 if CONFIG['OS_TARGET'] == 'Android' and CONFIG['MOZ_OPTIMIZE']:
     CFLAGS += ['-O2']
+
+if CONFIG['_MSC_VER']:
+    if '-DTT_MEMUTIL' in CONFIG['MOZ_OPTIMIZE_FLAGS']:
+        SOURCES['pixman-implementation.c'].flags += [
+            '-GL-',
+            '-openmp',
+        ]
+        SOURCES['pixman-general.c'].flags += [
+            '-GL-',
+            '-openmp',
+        ]
+        SOURCES['pixman-trap.c'].flags += [
+            '-GL-',
+            '-openmp',
+        ]
+        SOURCES['pixman-sse2.c'].flags += [
+            '-GL-',
+            '-openmp',
+        ]

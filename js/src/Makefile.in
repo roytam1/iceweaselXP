@@ -129,9 +129,13 @@ DIST_GARBAGE = config.cache config.log config.status* \
    config/autoconf.mk config/emptyvars.mk \
    js-config.h js-confdefs.h \
    backend.mk config/backend.mk devtools/backend.mk editline/backend.mk \
-   gdb/backend.mk jsapi-tests/backend.mk shell/backend.mk tests/backend.mk \
+   gdb/backend.mk jsapi-tests/backend.mk tests/backend.mk \
    backend.RecursiveMakeBackend backend.RecursiveMakeBackend.pp \
    devtools/rootAnalysis/Makefile
+
+ifdef JS_ENABLE_SHELL
+DIST_GARBAGE +=  shell/backend.mk
+endif
 
 distclean::
 	$(RM) $(DIST_GARBAGE)
@@ -261,3 +265,14 @@ clean::
 	$(srcdir)/make-source-package.sh clean
 
 endif
+
+ifdef _MSC_VER
+ifeq (WINNT_1,$(OS_ARCH)_$(MOZ_PROFILE_GENERATE)$(MOZ_PROFILE_USE))
+ifneq (x86_64, $(TARGET_CPU))
+ifdef ENABLE_ION
+# Optimizer bug with MSVC PGO
+Trampoline-x86.$(OBJ_SUFFIX): COMPILE_CXXFLAGS += -GL-
+endif
+endif
+endif
+endif # _MSC_VER

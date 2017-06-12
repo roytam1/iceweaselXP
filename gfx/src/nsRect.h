@@ -45,6 +45,10 @@ struct nsRect :
   {
     MOZ_COUNT_CTOR(nsRect);
   }
+  nsRect(const __m128i& a128i) : Super(a128i)
+  {
+    MOZ_COUNT_CTOR(nsRect);
+  }
 
 #ifdef NS_BUILD_REFCNT_LOGGING
   ~nsRect() {
@@ -218,11 +222,29 @@ nsRect::ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP, int32_t aToAPP) const
   return rect;
 }
 
+static const MOZ_ALIGNED_DECL(double d_half[2], 16) = { 0.5, 0.5 };
+
 // scale the rect but round to preserve centers
 inline mozilla::gfx::IntRect
 nsRect::ScaleToNearestPixels(float aXScale, float aYScale,
                              nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128d appUnitsPerPixel_x2 = _mm_cvtepi32_pd(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128d xy = _mm_cvtepi32_pd(src_x4);
+    __m128d xyMost = _mm_cvtepi32_pd(_mm_add_epi32(src_x4, _mm_srli_si128(src_x4, 8)));
+    __m128d xyScale = _mm_cvtps_pd(_mm_unpacklo_ps(_mm_load_ss(&aXScale), _mm_load_ss(&aYScale)));
+
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_floor_pd(_mm_add_pd(_mm_mul_pd(_mm_div_pd(xy, appUnitsPerPixel_x2), xyScale), *(__m128d *)&d_half)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_floor_pd(_mm_add_pd(_mm_mul_pd(_mm_div_pd(xyMost, appUnitsPerPixel_x2), xyScale), *(__m128d *)&d_half))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   mozilla::gfx::IntRect rect;
   rect.x = NSToIntRoundUp(NSAppUnitsToDoublePixels(x, aAppUnitsPerPixel) * aXScale);
   rect.y = NSToIntRoundUp(NSAppUnitsToDoublePixels(y, aAppUnitsPerPixel) * aYScale);
@@ -239,6 +261,23 @@ inline mozilla::gfx::IntRect
 nsRect::ScaleToOutsidePixels(float aXScale, float aYScale,
                              nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128 appUnitsPerPixel_x4 = _mm_cvtepi32_ps(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128 xy_xyMost = _mm_cvtepi32_ps(_mm_add_epi32(src_x4, _mm_slli_si128(src_x4, 8)));
+    __m128 xyScale_x2 = _mm_unpacklo_ps(_mm_load_ss(&aXScale), _mm_load_ss(&aYScale));
+    xyScale_x2 = _mm_movelh_ps(xyScale_x2, xyScale_x2);
+
+    __m128 a = _mm_mul_ps(_mm_div_ps(xy_xyMost, appUnitsPerPixel_x4), xyScale_x2);
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_floor_pd(_mm_cvtps_pd(a)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_ceil_pd(_mm_cvtps_pd(_mm_castsi128_ps(_mm_srli_si128(_mm_castps_si128(a), 8))))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   mozilla::gfx::IntRect rect;
   rect.x = NSToIntFloor(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) * aXScale);
   rect.y = NSToIntFloor(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) * aYScale);
@@ -255,6 +294,23 @@ inline mozilla::gfx::IntRect
 nsRect::ScaleToInsidePixels(float aXScale, float aYScale,
                             nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128 appUnitsPerPixel_x4 = _mm_cvtepi32_ps(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128 xy_xyMost = _mm_cvtepi32_ps(_mm_add_epi32(src_x4, _mm_slli_si128(src_x4, 8)));
+    __m128 xyScale_x2 = _mm_unpacklo_ps(_mm_load_ss(&aXScale), _mm_load_ss(&aYScale));
+    xyScale_x2 = _mm_movelh_ps(xyScale_x2, xyScale_x2);
+
+    __m128 a = _mm_mul_ps(_mm_div_ps(xy_xyMost, appUnitsPerPixel_x4), xyScale_x2);
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_ceil_pd(_mm_cvtps_pd(a)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_floor_pd(_mm_cvtps_pd(_mm_castsi128_ps(_mm_srli_si128(_mm_castps_si128(a), 8))))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   mozilla::gfx::IntRect rect;
   rect.x = NSToIntCeil(NSAppUnitsToFloatPixels(x, float(aAppUnitsPerPixel)) * aXScale);
   rect.y = NSToIntCeil(NSAppUnitsToFloatPixels(y, float(aAppUnitsPerPixel)) * aYScale);
@@ -269,18 +325,63 @@ nsRect::ScaleToInsidePixels(float aXScale, float aYScale,
 inline mozilla::gfx::IntRect
 nsRect::ToNearestPixels(nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128d appUnitsPerPixel_x2 = _mm_cvtepi32_pd(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128d xy = _mm_cvtepi32_pd(src_x4);
+    __m128d xyMost = _mm_cvtepi32_pd(_mm_add_epi32(src_x4, _mm_srli_si128(src_x4, 8)));
+
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_floor_pd(_mm_add_pd(_mm_div_pd(xy, appUnitsPerPixel_x2), *(__m128d *)&d_half)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_floor_pd(_mm_add_pd(_mm_div_pd(xyMost, appUnitsPerPixel_x2), *(__m128d *)&d_half))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   return ScaleToNearestPixels(1.0f, 1.0f, aAppUnitsPerPixel);
 }
 
 inline mozilla::gfx::IntRect
 nsRect::ToOutsidePixels(nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128 appUnitsPerPixel_x4 = _mm_cvtepi32_ps(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128 xy_xyMost = _mm_cvtepi32_ps(_mm_add_epi32(src_x4, _mm_slli_si128(src_x4, 8)));
+
+    __m128 a = _mm_div_ps(xy_xyMost, appUnitsPerPixel_x4);
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_floor_pd(_mm_cvtps_pd(a)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_ceil_pd(_mm_cvtps_pd(_mm_castsi128_ps(_mm_srli_si128(_mm_castps_si128(a), 8))))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   return ScaleToOutsidePixels(1.0f, 1.0f, aAppUnitsPerPixel);
 }
 
 inline mozilla::gfx::IntRect
 nsRect::ToInsidePixels(nscoord aAppUnitsPerPixel) const
 {
+#if !defined(NS_COORD_IS_FLOAT)
+  if (IsInt32x4() && mozilla::supports_sse4_1()) {
+    __m128 appUnitsPerPixel_x4 = _mm_cvtepi32_ps(_mm_set1_epi32(aAppUnitsPerPixel));
+    __m128i src_x4 = _mm_loadu_si128((__m128i *)&x);
+    __m128 xy_xyMost = _mm_cvtepi32_ps(_mm_add_epi32(src_x4, _mm_slli_si128(src_x4, 8)));
+
+    __m128 a = _mm_div_ps(xy_xyMost, appUnitsPerPixel_x4);
+    __m128i rectXY = _mm_cvttpd_epi32(_mm_ceil_pd(_mm_cvtps_pd(a)));
+    __m128i rectWH = _mm_max_epi32(_mm_setzero_si128(), _mm_sub_epi32(_mm_cvttpd_epi32(_mm_floor_pd(_mm_cvtps_pd(_mm_castsi128_ps(_mm_srli_si128(_mm_castps_si128(a), 8))))), rectXY));
+    __m128i rect = _mm_unpacklo_epi64(rectXY, rectWH);
+
+    return mozilla::gfx::IntRect(rect);
+  }
+#endif
+
   return ScaleToInsidePixels(1.0f, 1.0f, aAppUnitsPerPixel);
 }
 

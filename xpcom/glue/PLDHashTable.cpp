@@ -17,6 +17,13 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/ChaosMode.h"
 
+#if _MSC_VER >= 1400
+#include <intrin.h>
+#endif
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 using namespace mozilla;
 
 #ifdef DEBUG
@@ -99,13 +106,29 @@ PLDHashTable::MoveEntryStub(PLDHashTable* aTable,
                             const PLDHashEntryHdr* aFrom,
                             PLDHashEntryHdr* aTo)
 {
+#if _MSC_VER >= 1400
+  if ((aTable->mEntrySize & 3) == 0) {
+    __movsd((unsigned long*)aTo, (unsigned long*)aFrom, aTable->mEntrySize >> 2);
+  } else {
+    memcpy(aTo, aFrom, aTable->mEntrySize);
+  }
+#else
   memcpy(aTo, aFrom, aTable->mEntrySize);
+#endif
 }
 
 /* static */ void
 PLDHashTable::ClearEntryStub(PLDHashTable* aTable, PLDHashEntryHdr* aEntry)
 {
+#if _MSC_VER >= 1400
+  if ((aTable->mEntrySize & 3) == 0) {
+    __stosd((unsigned long*)aEntry, 0, aTable->mEntrySize >> 2);
+  } else {
+    memset(aEntry, 0, aTable->mEntrySize);
+  }
+#else
   memset(aEntry, 0, aTable->mEntrySize);
+#endif
 }
 
 static const PLDHashTableOps gStubOps = {
@@ -468,7 +491,26 @@ PLDHashTable::ChangeTable(int32_t aDeltaLog2)
   mRemovedCount = 0;
 
   // Assign the new entry store to table.
+#ifdef TT_MEMUTIL
+  {
+    static bool initialized = false;
+    static uint32_t dwNonTemporalDataSizeMin = NON_TEMPORAL_STORES_NOT_SUPPORTED;
+
+    if (!initialized) {
+      dwNonTemporalDataSizeMin = GetNonTemporalDataSizeMin_tt();
+      initialized = true;
+    }
+
+    if (nbytes < dwNonTemporalDataSizeMin ||
+        NON_TEMPORAL_STORES_NOT_SUPPORTED == dwNonTemporalDataSizeMin) {
+      memset(newEntryStore, 0, nbytes);
+    } else {
+      memset_nontemporal_tt(newEntryStore, 0, nbytes);
+    }
+  }
+#else
   memset(newEntryStore, 0, nbytes);
+#endif
   char* oldEntryStore;
   char* oldEntryAddr;
   oldEntryAddr = oldEntryStore = mEntryStore.Get();
@@ -480,6 +522,9 @@ PLDHashTable::ChangeTable(int32_t aDeltaLog2)
   for (uint32_t i = 0; i < oldCapacity; ++i) {
     PLDHashEntryHdr* oldEntry = (PLDHashEntryHdr*)oldEntryAddr;
     if (EntryIsLive(oldEntry)) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+      _mm_prefetch((char *)(oldEntryAddr + mEntrySize), _MM_HINT_NTA);
+#endif
       oldEntry->mKeyHash &= ~kCollisionFlag;
       PLDHashEntryHdr* newEntry = FindFreeEntry(oldEntry->mKeyHash);
       NS_ASSERTION(EntryIsFree(newEntry), "EntryIsFree(newEntry)");

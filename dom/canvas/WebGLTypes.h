@@ -9,6 +9,9 @@
 // Most WebIDL typedefs are identical to their OpenGL counterparts.
 #include "GLTypes.h"
 
+#include "nsPrintfCString.h"
+#include "nsContentUtils.h"
+
 // Manual reflection of WebIDL typedefs that are different from their
 // OpenGL counterparts.
 typedef int64_t WebGLsizeiptr;

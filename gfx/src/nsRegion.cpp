@@ -8,6 +8,10 @@
 #include "gfxUtils.h"
 #include "mozilla/ToString.h"
 
+#if !defined(NS_COORD_IS_FLOAT) && defined(_MSC_VER) && defined(_M_IX86)
+#include <intrin.h>
+#endif
+
 bool nsRegion::Contains(const nsRegion& aRgn) const
 {
   // XXX this could be made faster by iterating over
@@ -555,7 +559,11 @@ uint64_t nsRegion::Area () const
   uint64_t area = 0;
   for (auto iter = RectIter(); !iter.Done(); iter.Next()) {
     const nsRect& rect = iter.Get();
+#if !defined(NS_COORD_IS_FLOAT) && defined(_MSC_VER) && defined(_M_IX86)
+    area += __emul(rect.width, rect.height);
+#else
     area += uint64_t(rect.width) * rect.height;
+#endif
   }
   return area;
 }

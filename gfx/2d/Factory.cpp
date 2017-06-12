@@ -206,30 +206,6 @@ Factory::ShutDown()
 #endif
 }
 
-bool
-Factory::HasSSE2()
-{
-#if defined(__SSE2__) || defined(_M_X64) || \
-    (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
-  // gcc with -msse2 (default on OSX and x86-64)
-  // cl.exe with -arch:SSE2 (default on x64 compiler)
-  return true;
-#elif defined(HAVE_CPU_DETECTION)
-  static enum {
-    UNINITIALIZED,
-    NO_SSE2,
-    HAS_SSE2
-  } sDetectionState = UNINITIALIZED;
-
-  if (sDetectionState == UNINITIALIZED) {
-    sDetectionState = HasCPUIDBit(1u, edx, (1u<<26)) ? HAS_SSE2 : NO_SSE2;
-  }
-  return sDetectionState == HAS_SSE2;
-#else
-  return false;
-#endif
-}
-
 // If the size is "reasonable", we want gfxCriticalError to assert, so
 // this is the option set up for it.
 inline int LoggerOptionsBasedOnSize(const IntSize& aSize)

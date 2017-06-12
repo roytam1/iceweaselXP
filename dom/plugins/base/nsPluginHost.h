@@ -202,6 +202,12 @@ public:
                      // Binds to the <applet> tag, has various special
                      // rules around opening channels, codebase, ...
                      eSpecialType_Java,
+                     // Some IPC quirks
+                     eSpecialType_Silverlight,
+                     // Native widget quirks
+                     eSpecialType_PDF,
+                     // Native widget quirks
+                     eSpecialType_RealPlayer,
                      // Native widget quirks
                      eSpecialType_Unity };
   static SpecialType GetSpecialType(const nsACString & aMIMEType);
@@ -362,10 +368,6 @@ private:
   void SetChromeEpochForContent(uint32_t aEpoch);
 
   void UpdateInMemoryPluginInfo(nsPluginTag* aPluginTag);
-
-  // On certain platforms, we only want to load certain plugins. This function
-  // centralizes loading rules.
-  bool ShouldAddPlugin(nsPluginTag* aPluginTag);
 
   RefPtr<nsPluginTag> mPlugins;
   RefPtr<nsPluginTag> mCachedPlugins;

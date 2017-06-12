@@ -449,6 +449,18 @@ public:
 
   void ClearServoData();
 
+  void PrefetchAttrsAndChildren()
+  {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)&mAttrsAndChildren, _MM_HINT_NTA);
+#endif
+  }
+
+  void PrefetchAttrAndChildArrayImpl()
+  {
+    mAttrsAndChildren.PrefetchImpl();
+  }
+
 protected:
   /**
    * Method to get the _intrinsic_ content state of this element.  This is the

@@ -3717,6 +3717,10 @@ nsContentUtils::LogMessageToConsole(const char* aMsg)
   sConsoleService->LogStringMessage(NS_ConvertUTF8toUTF16(aMsg).get());
 }
 
+#ifdef _MSC_VER
+#pragma optimize("g", off)
+#endif
+
 bool
 nsContentUtils::IsChromeDoc(nsIDocument *aDocument)
 {
@@ -3725,6 +3729,10 @@ nsContentUtils::IsChromeDoc(nsIDocument *aDocument)
   }
   return aDocument->NodePrincipal() == sSystemPrincipal;
 }
+
+#ifdef _MSC_VER
+#pragma optimize("", on)
+#endif
 
 bool
 nsContentUtils::IsChildOfSameType(nsIDocument* aDoc)

@@ -10,7 +10,7 @@ endif
 
 # Don't link the gtest xul during MOZ_PROFILE_GENERATE, it doesn't get
 # used during profiling anyway.
-ifdef MOZ_PROFILE_GENERATE
+ifdef _MSC_VER
 LINK_GTEST_DURING_COMPILE =
 endif
 

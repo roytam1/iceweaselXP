@@ -46,3 +46,10 @@ if use_sse2:
 if use_altivec:
     SOURCES += ['transform-altivec.c']
     SOURCES['transform-altivec.c'].flags += ['-maltivec']
+
+if CONFIG['_MSC_VER']:
+    if '-DTT_MEMUTIL' in CONFIG['MOZ_OPTIMIZE_FLAGS']:
+        SOURCES['transform-sse2.c'].flags += [
+            '-GL-',
+            '-openmp',
+        ]

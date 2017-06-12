@@ -66,6 +66,13 @@ SOURCES += [
     'ImageUtils.cpp',
 ]
 
+if CONFIG['_MSC_VER']:
+    if '-DTT_MEMUTIL' in CONFIG['MOZ_OPTIMIZE_FLAGS']:
+        SOURCES['ImageUtils.cpp'].flags += [
+            '-GL-',
+            '-openmp',
+        ]
+
 # WebGL Sources
 UNIFIED_SOURCES += [
     'TexUnpackBlob.cpp',

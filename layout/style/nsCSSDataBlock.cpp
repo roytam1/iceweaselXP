@@ -543,6 +543,10 @@ nsCSSExpandedDataBlock::ComputeNumProps(uint32_t* aNumPropsNormal,
   }
 }
 
+#ifdef _MSC_VER
+#pragma optimize("g", off)
+#endif
+
 void
 nsCSSExpandedDataBlock::Compress(nsCSSCompressedDataBlock **aNormalBlock,
                                  nsCSSCompressedDataBlock **aImportantBlock,
@@ -625,6 +629,10 @@ nsCSSExpandedDataBlock::Compress(nsCSSCompressedDataBlock **aNormalBlock,
   *aNormalBlock = result_normal.forget();
   *aImportantBlock = result_important.forget();
 }
+
+#ifdef _MSC_VER
+#pragma optimize("", on)
+#endif
 
 void
 nsCSSExpandedDataBlock::AddLonghandProperty(nsCSSPropertyID aProperty,

@@ -12,6 +12,10 @@
 #ifndef nsAttrAndChildArray_h___
 #define nsAttrAndChildArray_h___
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #include "mozilla/Attributes.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/dom/BorrowedAttrInfo.h"
@@ -133,6 +137,13 @@ public:
   bool HasMappedAttrs() const
   {
     return MappedAttrCount();
+  }
+
+  void PrefetchImpl()
+  {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)mImpl, _MM_HINT_NTA);
+#endif
   }
 
 private:

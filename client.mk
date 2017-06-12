@@ -236,7 +236,11 @@ profiledbuild::
 	rm -f $(OBJDIR)/jarlog/en-US.log
 	$(call BUILDSTATUS,TIER_FINISH pgo_package)
 	$(call BUILDSTATUS,TIER_START pgo_profile)
+ifdef PROFILE_GEN_SCRIPT
+	MOZ_PGO_INSTRUMENTED=1 JARLOG_FILE=jarlog/en-US.log OBJDIR=$(MOZ_OBJDIR) $(PROFILE_GEN_SCRIPT)
+else
 	MOZ_PGO_INSTRUMENTED=1 JARLOG_FILE=jarlog/en-US.log EXTRA_TEST_ARGS=10 $(MAKE) -C $(OBJDIR) pgo-profile-run
+endif
 	$(call BUILDSTATUS,TIER_FINISH pgo_profile)
 	$(call BUILDSTATUS,TIER_START pgo_clobber)
 	$(MAKE) -f $(TOPSRCDIR)/client.mk maybe_clobber_profiledbuild CREATE_MOZCONFIG_JSON=

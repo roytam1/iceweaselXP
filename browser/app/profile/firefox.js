@@ -227,7 +227,7 @@ pref("browser.startup.homepage",            "chrome://branding/locale/browsercon
 // Whether we should skip the homepage when opening the first-run page
 pref("browser.startup.firstrunSkipsHomepage", false);
 
-pref("browser.slowStartup.notificationDisabled", false);
+pref("browser.slowStartup.notificationDisabled", true);
 pref("browser.slowStartup.timeThreshold", 40000);
 pref("browser.slowStartup.maxSamples", 5);
 
@@ -662,6 +662,10 @@ pref("plugin.defaultXpi.state", 2);
 // Flash is enabled by default, and Java is click-to-activate by default on
 // all channels.
 pref("plugin.state.flash", 2);
+// Add by adonais.
+pref("plugin.state.npalisecctrl", 2);
+pref("plugin.state.npalissologin", 2);
+pref("plugin.state.nppdfviewer", 2);
 pref("plugin.state.java", 1);
 
 #ifdef XP_WIN
@@ -1177,7 +1181,7 @@ pref("browser.newtabpage.introShown", false);
 pref("browser.newtabpage.enabled", true);
 
 // Toggles the enhanced content of 'about:newtab'. Shows sponsored tiles.
-sticky_pref("browser.newtabpage.enhanced", true);
+sticky_pref("browser.newtabpage.enhanced", false);
 
 // enables Activity Stream inspired layout
 pref("browser.newtabpage.compact", false);

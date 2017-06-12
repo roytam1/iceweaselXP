@@ -1,3 +1,7 @@
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+#include <omp.h>
+#endif
+
 #include <emmintrin.h>
 
 #include "qcmsint.h"
@@ -15,17 +19,8 @@ void qcms_transform_data_rgb_out_lut_sse2(qcms_transform *transform,
                                           unsigned char *dest,
                                           size_t length)
 {
-    unsigned int i;
+    int i;
     float (*mat)[4] = transform->matrix;
-    char input_back[32];
-    /* Ensure we have a buffer that's 16 byte aligned regardless of the original
-     * stack alignment. We can't use __attribute__((aligned(16))) or __declspec(align(32))
-     * because they don't work on stack variables. gcc 4.4 does do the right thing
-     * on x86 but that's too new for us right now. For more info: gcc bug #16660 */
-    float const * input = (float*)(((uintptr_t)&input_back[16]) & ~0xf);
-    /* share input and output locations to save having to keep the
-     * locations in separate registers */
-    uint32_t const * output = (uint32_t*)input;
 
     /* deref *transform now to avoid it in loop */
     const float *igtbl_r = transform->input_gamma_table_r;
@@ -47,26 +42,32 @@ void qcms_transform_data_rgb_out_lut_sse2(qcms_transform *transform,
     const __m128 min   = _mm_setzero_ps();
     const __m128 scale = _mm_load_ps(floatScaleX4);
 
-    /* working variables */
-    __m128 vec_r, vec_g, vec_b, result;
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+    int omp_thread_counts;
+#endif
 
     /* CYA */
-    if (!length)
+    if (length==0)
         return;
 
-    /* one pixel is handled outside of the loop */
-    length--;
-
-    /* setup for transforming 1st pixel */
-    vec_r = _mm_load_ss(&igtbl_r[src[0]]);
-    vec_g = _mm_load_ss(&igtbl_g[src[1]]);
-    vec_b = _mm_load_ss(&igtbl_b[src[2]]);
-    src += 3;
-
-    /* transform all but final pixel */
-
-    for (i=0; i<length; i++)
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+    omp_thread_counts = omp_get_max_threads();
+#pragma omp parallel for schedule(static) default(none) num_threads(2) \
+shared(length, igtbl_r, igtbl_g, igtbl_b, src, dest, otdata_r, otdata_g, otdata_b) \
+if (omp_thread_counts >= 2 && \
+    length >= (size_t)omp_thread_counts && \
+    length >= 700)
+#endif // defined(TT_MEMUTIL) && defined(_MSC_VER)
+    for (i=0; i<(int)length; i++)
     {
+        __m128 vec_r, vec_g, vec_b;
+        __m128i result;
+
+        /* load */
+        vec_r = _mm_load_ss(&igtbl_r[src[i * 3 + 0]]);
+        vec_g = _mm_load_ss(&igtbl_g[src[i * 3 + 1]]);
+        vec_b = _mm_load_ss(&igtbl_b[src[i * 3 + 2]]);
+
         /* position values from gamma tables */
         vec_r = _mm_shuffle_ps(vec_r, vec_r, 0);
         vec_g = _mm_shuffle_ps(vec_g, vec_g, 0);
@@ -81,44 +82,15 @@ void qcms_transform_data_rgb_out_lut_sse2(qcms_transform *transform,
         vec_r  = _mm_add_ps(vec_r, _mm_add_ps(vec_g, vec_b));
         vec_r  = _mm_max_ps(min, vec_r);
         vec_r  = _mm_min_ps(max, vec_r);
-        result = _mm_mul_ps(vec_r, scale);
-
-        /* store calc'd output tables indices */
-        _mm_store_si128((__m128i*)output, _mm_cvtps_epi32(result));
-
-        /* load for next loop while store completes */
-        vec_r = _mm_load_ss(&igtbl_r[src[0]]);
-        vec_g = _mm_load_ss(&igtbl_g[src[1]]);
-        vec_b = _mm_load_ss(&igtbl_b[src[2]]);
-        src += 3;
+        result = _mm_cvtps_epi32(_mm_mul_ps(vec_r, scale));
 
         /* use calc'd indices to output RGB values */
-        dest[OUTPUT_R_INDEX] = otdata_r[output[0]];
-        dest[OUTPUT_G_INDEX] = otdata_g[output[1]];
-        dest[OUTPUT_B_INDEX] = otdata_b[output[2]];
-        dest += RGB_OUTPUT_COMPONENTS;
+        dest[i * RGB_OUTPUT_COMPONENTS + OUTPUT_R_INDEX] = otdata_r[_mm_cvtsi128_si32(result)];
+        result = _mm_srli_si128(result, 4);
+        dest[i * RGB_OUTPUT_COMPONENTS + OUTPUT_G_INDEX] = otdata_g[_mm_cvtsi128_si32(result)];
+        result = _mm_srli_si128(result, 4);
+        dest[i * RGB_OUTPUT_COMPONENTS + OUTPUT_B_INDEX] = otdata_b[_mm_cvtsi128_si32(result)];
     }
-
-    /* handle final (maybe only) pixel */
-
-    vec_r = _mm_shuffle_ps(vec_r, vec_r, 0);
-    vec_g = _mm_shuffle_ps(vec_g, vec_g, 0);
-    vec_b = _mm_shuffle_ps(vec_b, vec_b, 0);
-
-    vec_r = _mm_mul_ps(vec_r, mat0);
-    vec_g = _mm_mul_ps(vec_g, mat1);
-    vec_b = _mm_mul_ps(vec_b, mat2);
-
-    vec_r  = _mm_add_ps(vec_r, _mm_add_ps(vec_g, vec_b));
-    vec_r  = _mm_max_ps(min, vec_r);
-    vec_r  = _mm_min_ps(max, vec_r);
-    result = _mm_mul_ps(vec_r, scale);
-
-    _mm_store_si128((__m128i*)output, _mm_cvtps_epi32(result));
-
-    dest[OUTPUT_R_INDEX] = otdata_r[output[0]];
-    dest[OUTPUT_G_INDEX] = otdata_g[output[1]];
-    dest[OUTPUT_B_INDEX] = otdata_b[output[2]];
 }
 
 void qcms_transform_data_rgba_out_lut_sse2(qcms_transform *transform,

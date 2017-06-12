@@ -1405,6 +1405,15 @@
     "n_buckets": 50,
     "description": "PNG image decode speed (Kbytes/sec)"
   },
+  "IMAGE_DECODE_SPEED_WEBP": {
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "low": 500,
+    "high": 50000000,
+    "n_buckets": 50,
+    "description": "WebP image decode speed (Kbytes/sec)",
+    "bug_numbers": [1294490]
+  },
   "CANVAS_2D_USED": {
     "expires_in_version": "never",
     "kind": "boolean",

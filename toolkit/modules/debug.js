@@ -42,7 +42,7 @@ this.NS_ASSERT = function NS_ASSERT(condition, message) {
       case "nightly":
       case "aurora":
       case "beta":
-      case "default":
+      // case "default":
         releaseBuild = false;
     }
   } catch (ex) {}

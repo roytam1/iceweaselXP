@@ -12,6 +12,14 @@
 
 namespace mozilla {
 
+void GetImageData_component(uint8_t* _src, uint8_t* _dst,
+                            int32_t width, int32_t height,
+                            uint32_t srcStride, uint32_t dstStride);
+
+void PutImageData_component(uint8_t* _src, uint8_t* _dst,
+                            int32_t width, int32_t height,
+                            uint32_t srcStride, uint32_t dstStride, uint8_t alphaMask);
+
 namespace layers {
 class Image;
 }

@@ -1570,11 +1570,13 @@ imgLoader::CheckCacheLimits(imgCacheTable& cache, imgCacheQueue& queue)
     NS_ASSERTION(entry, "imgLoader::CheckCacheLimits -- NULL entry pointer");
 
     if (MOZ_LOG_TEST(gImgLog, LogLevel::Debug)) {
-      RefPtr<imgRequest> req = entry->GetRequest();
-      if (req) {
-        LOG_STATIC_FUNC_WITH_PARAM(gImgLog,
-                                   "imgLoader::CheckCacheLimits",
-                                   "entry", req->CacheKey().Spec());
+      if (entry) {
+        RefPtr<imgRequest> req = entry->GetRequest();
+        if (req) {
+          LOG_STATIC_FUNC_WITH_PARAM(gImgLog,
+                                     "imgLoader::CheckCacheLimits",
+                                     "entry", req->CacheKey().Spec());
+        }
       }
     }
 
@@ -2556,6 +2558,11 @@ imgLoader::GetMimeTypeFromContent(const char* aContents,
   } else if (aLength >= 4 && (!memcmp(aContents, "\000\000\001\000", 4) ||
                               !memcmp(aContents, "\000\000\002\000", 4))) {
     aContentType.AssignLiteral(IMAGE_ICO);
+
+  // WebPs always begin with RIFF, a 32-bit length, and WEBP.
+  } else if (aLength >= 12 && !memcmp(aContents, "RIFF", 4) &&
+                              !memcmp(aContents + 8, "WEBP", 4)) {
+    aContentType.AssignLiteral(IMAGE_WEBP);
 
   } else {
     /* none of the above?  I give up */

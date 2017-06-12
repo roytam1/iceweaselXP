@@ -11,6 +11,14 @@
 #include "mozilla/dom/ImageBitmapBinding.h"
 #include "mozilla/ErrorResult.h"
 
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+#include <omp.h>
+#endif
+
+#include <tmmintrin.h>
+#include "mozilla/SSE.h"
+#include "gfxUtils.h"
+
 using namespace mozilla::layers;
 using namespace mozilla::gfx;
 
@@ -286,4 +294,262 @@ ImageUtils::MapDataInto(uint8_t* aBuffer,
 }
 
 } // namespace dom
+
+
+void
+GetImageData_component(uint8_t* _src, uint8_t* _dst,
+                       int32_t width, int32_t height,
+                       uint32_t srcStride, uint32_t dstStride)
+{
+    uint8_t *srcFirst = _src;
+    uint8_t *dstFirst = _dst;
+
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+    int omp_thread_counts = omp_get_max_threads();
+
+#pragma omp parallel for schedule(guided) default(none) \
+shared(srcFirst, dstFirst, width, height, srcStride, dstStride, gfxUtils::sUnpremultiplyTable) \
+if (omp_thread_counts >= 2 && \
+    height >= (int32_t)omp_thread_counts && \
+    width * height >= 4096)
+#endif // defined(TT_MEMUTIL) && defined(_MSC_VER)
+    for (int32_t j = 0; j < height; ++j) {
+        uint8_t *src = srcFirst + (srcStride * j);
+        uint8_t *dst = dstFirst + (dstStride * j);
+
+        for (int32_t i = 0; i < width; ++i) {
+            // XXX Is there some useful swizzle MMX we can use here?
+#ifdef IS_LITTLE_ENDIAN
+            uint8_t b = *src++;
+            uint8_t g = *src++;
+            uint8_t r = *src++;
+            uint8_t a = *src++;
+#else
+            uint8_t a = *src++;
+            uint8_t r = *src++;
+            uint8_t g = *src++;
+            uint8_t b = *src++;
+#endif
+            // Convert to non-premultiplied color
+            *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + r];
+            *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + g];
+            *dst++ = gfxUtils::sUnpremultiplyTable[a * 256 + b];
+            *dst++ = a;
+        }
+    }
+}
+
+void
+PutImageData_component(uint8_t* _src, uint8_t* _dst,
+                       int32_t width, int32_t height,
+                       uint32_t srcStride, uint32_t dstStride, uint8_t alphaMask)
+{
+    uint8_t *srcFirst = _src;
+    uint8_t *dstFirst = _dst;
+
+    if (mozilla::supports_ssse3()) {
+        static const __m128i msk_alpha = _mm_set1_epi32(0xFF000000);
+        static const __m128i alphaMask128 = _mm_set1_epi32(((uint32_t)alphaMask) << 24);
+        static const __m128i sfl_alphaLo = _mm_set_epi8((char)0x80, 7, (char)0x80, 7, (char)0x80, 7, (char)0x80, 7, (char)0x80, 3, (char)0x80, 3, (char)0x80, 3, (char)0x80, 3);
+        static const __m128i sfl_alphaHi = _mm_set_epi8((char)0x80, 15, (char)0x80, 15, (char)0x80, 15, (char)0x80, 15, (char)0x80, 11, (char)0x80, 11, (char)0x80, 11, (char)0x80, 11);
+        static const __m128i word_add = _mm_set1_epi16(0x00FF);
+        static const __m128i word_mul = _mm_set_epi16(0, 257, 257, 257, 0, 257, 257, 257);
+        static const __m128i sfl_bgra = _mm_set_epi8(15, 12, 13, 14, 11, 8, 9, 10, 7, 4, 5, 6, 3, 0, 1, 2);
+
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+        int omp_thread_counts = omp_get_max_threads();
+
+#pragma omp parallel for schedule(guided) default(none) \
+shared(srcFirst, dstFirst, width, height, srcStride, dstStride, gfxUtils::sPremultiplyTable) \
+if (omp_thread_counts >= 2 && \
+    height >= (int32_t)omp_thread_counts && \
+    width * height >= 12000)
+#endif // defined(TT_MEMUTIL) && defined(_MSC_VER)
+        for (int j = 0; j < height; j++) {
+            uint8_t *src = srcFirst + (srcStride * j);
+            uint8_t *dst = dstFirst + (dstStride * j);
+            int32_t i = width;
+
+            while (i >= 1 && ((uintptr_t)dst & 15)) {
+                uint8_t r = *src++;
+                uint8_t g = *src++;
+                uint8_t b = *src++;
+                uint8_t a = *src++;
+
+                // Convert to premultiplied color (losslessly if the input came from getImageData)
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
+                *dst++ = a | alphaMask;
+                i -= 1;
+            }
+
+            const int srcMissalignedBytes = ((uintptr_t)src & 15);
+
+            if (srcMissalignedBytes == 0) {
+                while (i >= 4) {
+                    __m128i xmb = _mm_load_si128((__m128i*)src);
+                    __m128i xmwLo = _mm_unpacklo_epi8(xmb, _mm_setzero_si128());
+                    __m128i xmwHi = _mm_unpackhi_epi8(xmb, _mm_setzero_si128());
+
+                    __m128i xmwAlpha = _mm_and_si128(xmb, msk_alpha);
+                    xmwAlpha = _mm_or_si128(xmwAlpha, alphaMask128);
+
+                    __m128i xmwAlphaLo = _mm_shuffle_epi8(xmb, sfl_alphaLo);
+                    __m128i xmwAlphaHi = _mm_shuffle_epi8(xmb, sfl_alphaHi);
+
+                    xmwLo = _mm_mullo_epi16(xmwLo, xmwAlphaLo);
+                    xmwLo = _mm_adds_epu16(xmwLo, word_add);
+                    xmwLo = _mm_mulhi_epu16(xmwLo, word_mul);
+
+                    xmwHi = _mm_mullo_epi16(xmwHi, xmwAlphaHi);
+                    xmwHi = _mm_adds_epu16(xmwHi, word_add);
+                    xmwHi = _mm_mulhi_epu16(xmwHi, word_mul);
+
+                    __m128i xmRes = _mm_packus_epi16(xmwLo, xmwHi);
+                    xmRes = _mm_or_si128(xmRes, xmwAlpha);
+                    xmRes = _mm_shuffle_epi8(xmRes, sfl_bgra);
+                    _mm_store_si128((__m128i*)dst, xmRes);
+
+                    src += 16;
+                    dst += 16;
+                    i -= 4;
+                }
+            } else {
+                __m128i xmLoadPre = _mm_load_si128((__m128i*)(src - srcMissalignedBytes));
+
+                while (i >= 4) {
+                    __m128i xmLoadNext = _mm_load_si128((__m128i*)(src - srcMissalignedBytes + 16));
+                    __m128i xmb;
+
+                    switch (srcMissalignedBytes) {
+                    case 1:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 1);
+                        break;
+                    case 2:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 2);
+                        break;
+                    case 3:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 3);
+                        break;
+                    case 4:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 4);
+                        break;
+                    case 5:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 5);
+                        break;
+                    case 6:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 6);
+                        break;
+                    case 7:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 7);
+                        break;
+                    case 8:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 8);
+                        break;
+                    case 9:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 9);
+                        break;
+                    case 10:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 10);
+                        break;
+                    case 11:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 11);
+                        break;
+                    case 12:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 12);
+                        break;
+                    case 13:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 13);
+                        break;
+                    case 14:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 14);
+                        break;
+                    case 15:
+                        xmb = _mm_alignr_epi8(xmLoadNext, xmLoadPre, 15);
+                        break;
+                    }
+                    xmLoadPre = xmLoadNext;
+
+                    __m128i xmwLo = _mm_unpacklo_epi8(xmb, _mm_setzero_si128());
+                    __m128i xmwHi = _mm_unpackhi_epi8(xmb, _mm_setzero_si128());
+
+                    __m128i xmwAlpha = _mm_and_si128(xmb, msk_alpha);
+                    xmwAlpha = _mm_or_si128(xmwAlpha, alphaMask128);
+
+                    __m128i xmwAlphaLo = _mm_shuffle_epi8(xmb, sfl_alphaLo);
+                    __m128i xmwAlphaHi = _mm_shuffle_epi8(xmb, sfl_alphaHi);
+
+                    xmwLo = _mm_mullo_epi16(xmwLo, xmwAlphaLo);
+                    xmwLo = _mm_adds_epu16(xmwLo, word_add);
+                    xmwLo = _mm_mulhi_epu16(xmwLo, word_mul);
+
+                    xmwHi = _mm_mullo_epi16(xmwHi, xmwAlphaHi);
+                    xmwHi = _mm_adds_epu16(xmwHi, word_add);
+                    xmwHi = _mm_mulhi_epu16(xmwHi, word_mul);
+
+                    __m128i xmRes = _mm_packus_epi16(xmwLo, xmwHi);
+                    xmRes = _mm_or_si128(xmRes, xmwAlpha);
+                    xmRes = _mm_shuffle_epi8(xmRes, sfl_bgra);
+                    _mm_store_si128((__m128i*)dst, xmRes);
+
+                    src += 16;
+                    dst += 16;
+                    i -= 4;
+                }
+            }
+
+            while (i >= 1) {
+                uint8_t r = *src++;
+                uint8_t g = *src++;
+                uint8_t b = *src++;
+                uint8_t a = *src++;
+
+                // Convert to premultiplied color (losslessly if the input came from getImageData)
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
+                *dst++ = a | alphaMask;
+                i -= 1;
+            }
+        }
+    } else {
+#if defined(TT_MEMUTIL) && defined(_MSC_VER)
+        int omp_thread_counts = omp_get_max_threads();
+
+#pragma omp parallel for schedule(guided) default(none) \
+shared(srcFirst, dstFirst, width, height, srcStride, dstStride, gfxUtils::sPremultiplyTable) \
+if (omp_thread_counts >= 2 && \
+    height >= (int32_t)omp_thread_counts && \
+    width * height >= 4096)
+#endif // defined(TT_MEMUTIL) && defined(_MSC_VER)
+        for (int64_t j = 0; j < height; j++) {
+            uint8_t *src = srcFirst + (srcStride * j);
+            uint8_t *dst = dstFirst + (dstStride * j);
+
+            for (int32_t i = 0; i < width; i++) {
+                // XXX Is there some useful swizzle MMX we can use here?
+                uint8_t r = *src++;
+                uint8_t g = *src++;
+                uint8_t b = *src++;
+                uint8_t a = *src++;
+
+                // Convert to premultiplied color (losslessly if the input came from getImageData)
+#if MOZ_LITTLE_ENDIAN
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
+                *dst++ = a | alphaMask;
+#else
+                *dst++ = a | alphaMask;
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + r];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + g];
+                *dst++ = gfxUtils::sPremultiplyTable[a * 256 + b];
+#endif
+            }
+        }
+    }
+}
+
+
 } // namespace mozilla

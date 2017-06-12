@@ -294,6 +294,7 @@ def old_configure_options(*options):
     '--with-user-appdir',
     '--x-includes',
     '--x-libraries',
+    '--enable-require-all-d3dc-versions',
 
     # Below are the configure flags used by comm-central.
     '--enable-ldap',

@@ -28,6 +28,7 @@ UNIFIED_SOURCES += [
     'nsIconDecoder.cpp',
     'nsJPEGDecoder.cpp',
     'nsPNGDecoder.cpp',
+    'nsWebPDecoder.cpp',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
@@ -40,6 +41,9 @@ LOCAL_INCLUDES += [
 ]
 
 LOCAL_INCLUDES += CONFIG['SKIA_INCLUDES']
+
+if CONFIG['MOZ_SYSTEM_WEBP']:
+    CXXFLAGS += CONFIG['MOZ_WEBP_CFLAGS']
 
 FINAL_LIBRARY = 'xul'
 

@@ -144,11 +144,10 @@ ifdef NS_USE_GCC
     DEFINES += -DMP_NO_MP_WORD -DMP_USE_UINT_DIGIT
 else
 # MSVC
-    MPI_SRCS += mpi_x86_asm.c
     DEFINES += -DMP_ASSEMBLY_MULTIPLY -DMP_ASSEMBLY_SQUARE 
     DEFINES += -DMP_ASSEMBLY_DIV_2DX1D -DMP_USE_UINT_DIGIT -DMP_NO_MP_WORD
     ifdef BUILD_OPT
-	OPTIMIZER += -Ox  # maximum optimization for freebl
+	OPTIMIZER += -O2  # maximum optimization for freebl
     endif
     # The Intel AES assembly code requires Visual C++ 2010.
     # if $(_MSC_VER) >= 1600 (Visual C++ 2010)

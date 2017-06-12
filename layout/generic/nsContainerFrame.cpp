@@ -5,6 +5,10 @@
 
 /* base class #1 for rendering objects that have child lists */
 
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+#include <xmmintrin.h>
+#endif
+
 #include "nsContainerFrame.h"
 
 #include "mozilla/dom/HTMLDetailsElement.h"
@@ -249,6 +253,10 @@ nsContainerFrame::DestroyFrom(nsIFrame* aDestructRoot)
 /////////////////////////////////////////////////////////////////////////////
 // Child frame enumeration
 
+#ifdef _MSC_VER
+#pragma optimize("g", off)
+#endif
+
 const nsFrameList&
 nsContainerFrame::GetChildList(ChildListID aListID) const
 {
@@ -278,6 +286,10 @@ nsContainerFrame::GetChildList(ChildListID aListID) const
       return nsSplittableFrame::GetChildList(aListID);
   }
 }
+
+#ifdef _MSC_VER
+#pragma optimize("", on)
+#endif
 
 static void
 AppendIfNonempty(const nsIFrame* aFrame,
@@ -338,6 +350,9 @@ nsContainerFrame::BuildDisplayListForNonBlockChildren(nsDisplayListBuilder*   aB
   nsDisplayListSet set(aLists, aLists.Content());
   // The children should be in content order
   while (kid) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+    _mm_prefetch((char *)kid->GetNextSibling(), _MM_HINT_T0);
+#endif
     BuildDisplayListForChild(aBuilder, kid, aDirtyRect, set, aFlags);
     kid = kid->GetNextSibling();
   }
@@ -1334,6 +1349,9 @@ nsContainerFrame::DisplayOverflowContainers(nsDisplayListBuilder*   aBuilder,
   nsFrameList* overflowconts = GetPropTableFrames(OverflowContainersProperty());
   if (overflowconts) {
     for (nsIFrame* frame : *overflowconts) {
+#if (_M_IX86_FP >= 1) || defined(__SSE__) || defined(_M_AMD64) || defined(__amd64__)
+      _mm_prefetch((char *)frame->GetNextSibling(), _MM_HINT_T0);
+#endif
       BuildDisplayListForChild(aBuilder, frame, aDirtyRect, aLists);
     }
   }
