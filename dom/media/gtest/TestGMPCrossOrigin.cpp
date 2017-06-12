@@ -23,6 +23,9 @@
 #include "GMPDeviceBinding.h"
 #include "mozilla/dom/MediaKeyStatusMapBinding.h" // For MediaKeyStatus
 #include "mozilla/dom/MediaKeyMessageEventBinding.h" // For MediaKeyMessageType
+#if defined(XP_WIN)
+#include "mozilla/WindowsVersion.h"
+#endif
 
 using namespace std;
 
@@ -1108,6 +1111,15 @@ class GMPStorageTest : public GMPDecryptorProxyCallback
                     NS_LITERAL_CSTRING("test-op-apis"));
   }
 #endif
+  void TestPluginVoucher() {
+    Expect(NS_LITERAL_CSTRING("retrieved plugin-voucher: gmp-fake placeholder voucher"),
+           NewRunnableMethod(this, &GMPStorageTest::SetFinished));
+
+    CreateDecryptor(NS_LITERAL_STRING("http://example17.com"),
+                    NS_LITERAL_STRING("http://example18.com"),
+                    false,
+                    NS_LITERAL_CSTRING("retrieve-plugin-voucher"));
+  }
 
   void TestGetRecordNamesInMemoryStorage() {
     TestGetRecordNames(true);
@@ -1420,6 +1432,10 @@ TEST(GeckoMediaPlugins, GMPStoragePrivateBrowsing) {
 
 #if defined(XP_WIN)
 TEST(GeckoMediaPlugins, GMPOutputProtection) {
+  // Output Protection is not available pre-Vista.
+  if (!IsVistaOrLater()) {
+    return;
+  }
   RefPtr<GMPStorageTest> runner = new GMPStorageTest();
   runner->DoTest(&GMPStorageTest::TestOutputProtection);
 }

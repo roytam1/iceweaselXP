@@ -420,7 +420,7 @@ def eme_default(build_project, help):
 
 option('--enable-eme',
        nargs='*',
-       choices=('widevine',),
+       choices=('adobe','widevine',),
        default=eme_default,
        help='Enable support for Encrypted Media Extensions')
 
