@@ -74,7 +74,7 @@ this.GMPUtils = {
     }
     if (aPlugin.id == EME_ADOBE_ID) {
       // Windows XP only supported by Adobe EME.
-      return AppConstants.isPlatformAndVersionAtMost("win", "5.1");
+      return AppConstants.isPlatformAndVersionAtMost("win", "5.3");
     } else if (aPlugin.id == WIDEVINE_ID) {
 
       // The Widevine plugin is available for Windows versions Vista and later,
