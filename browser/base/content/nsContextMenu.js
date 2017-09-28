@@ -175,15 +175,15 @@ nsContextMenu.prototype = {
   initNavigationItems: function CM_initNavigationItems() {
     var shouldShow = !(this.isContentSelected || this.onLink || this.onImage ||
                        this.onCanvas || this.onVideo || this.onAudio ||
-                       this.onTextInput);
+                       this.onTextInput|| this.onSocial);
     this.showItem("context-navigation", shouldShow);
     this.showItem("context-sep-navigation", shouldShow);
 
     let stopped = XULBrowserWindow.stopCommand.getAttribute("disabled") == "true";
 
     let stopReloadItem = "";
-    if (shouldShow) {
-      stopReloadItem = (stopped) ? "reload" : "stop";
+    if (shouldShow || this.onSocial) {
+      stopReloadItem = (stopped || this.onSocial) ? "reload" : "stop";
     }
 
     this.showItem("context-reload", stopReloadItem == "reload");
@@ -250,7 +250,7 @@ nsContextMenu.prototype = {
                        this.onImage || this.onCanvas ||
                        this.onVideo || this.onAudio ||
                        this.onLink || this.onTextInput);
-    var showInspect = && gPrefService.getBoolPref("devtools.inspector.enabled");
+    var showInspect = !this.onSocial && gPrefService.getBoolPref("devtools.inspector.enabled");
     this.showItem("context-viewsource", shouldShow);
     this.showItem("context-viewinfo", shouldShow);
     this.showItem("inspect-separator", showInspect);
@@ -307,12 +307,12 @@ nsContextMenu.prototype = {
     let bookmarkPage = document.getElementById("context-bookmarkpage");
     this.showItem(bookmarkPage,
                   !(this.isContentSelected || this.onTextInput || this.onLink ||
-                    this.onImage || this.onVideo || this.onAudio ||
+                    this.onImage || this.onVideo || this.onAudio || this.onSocial ||
                     this.onCanvas));
     bookmarkPage.setAttribute("tooltiptext", bookmarkPage.getAttribute("buttontooltiptext"));
 
     this.showItem("context-bookmarklink", (this.onLink && !this.onMailtoLink &&
-                                           || this.onPlainTextLink);
+                                           !this.onSocial) || this.onPlainTextLink);
     this.showItem("context-keywordfield",
                   this.onTextInput && this.onKeywordField);
     this.showItem("frame", this.inFrame);
@@ -652,7 +652,7 @@ nsContextMenu.prototype = {
                                         .getInterface(Ci.nsIDOMWindowUtils)
                                         .outerWindowID;
     }
-
+	this.onSocial = !!this.browser.getAttribute("origin");
     // Check if we are in a synthetic document (stand alone image, video, etc.).
     this.inSyntheticDoc = ownerDoc.mozSyntheticDocument;
     // First, do checks for nodes that never have children.
@@ -1808,7 +1808,7 @@ nsContextMenu.prototype = {
   _getTelemetryPageContextInfo: function() {
     let rv = [];
     for (let k of ["isContentSelected", "onLink", "onImage", "onCanvas", "onVideo", "onAudio",
-                   "onTextInput"]) {
+                   "onTextInput", "onSocial"]) {
       if (this[k]) {
         rv.push(k.replace(/^(?:is|on)(.)/, (match, firstLetter) => firstLetter.toLowerCase()));
       }
