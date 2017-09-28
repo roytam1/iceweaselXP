@@ -45,9 +45,6 @@ static RedirEntry kRedirMap[] = {
     nsIAboutModule::URI_CAN_LOAD_IN_CHILD |
     nsIAboutModule::ALLOW_SCRIPT |
     nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "socialerror", "chrome://browser/content/aboutSocialError.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
   { "providerdirectory", "chrome://browser/content/aboutProviderDirectory.xhtml",
     nsIAboutModule::ALLOW_SCRIPT |
     nsIAboutModule::HIDE_FROM_ABOUTABOUT },

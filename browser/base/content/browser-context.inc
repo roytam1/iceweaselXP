@@ -271,10 +271,6 @@
                 accesskey="&hidePluginCmd.accesskey;"
                 oncommand="gContextMenu.hidePlugin();"/>
       <menuseparator id="context-sep-ctp"/>
-      <menuitem id="context-sharepage"
-                label="&sharePageCmd.label;"
-                accesskey="&sharePageCmd.accesskey;"
-                oncommand="SocialShare.sharePage();"/>
       <menuitem id="context-savepage"
                 label="&savePageCmd.label;"
                 accesskey="&savePageCmd.accesskey2;"

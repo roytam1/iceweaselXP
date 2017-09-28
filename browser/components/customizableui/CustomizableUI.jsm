@@ -59,15 +59,6 @@ const kSubviewEvents = [
 var kVersion = 6;
 
 /**
- * Buttons removed from built-ins by version they were removed. kVersion must be
- * bumped any time a new id is added to this. Use the button id as key, and
- * version the button is removed in as the value.  e.g. "pocket-button": 5
- */
-var ObsoleteBuiltinButtons = {
-  "pocket-button": 6
-};
-
-/**
  * gPalette is a map of every widget that CustomizableUI.jsm knows about, keyed
  * on their IDs.
  */
@@ -251,13 +242,6 @@ var CustomizableUIInternal = {
 
     if (Services.prefs.getBoolPref(kPrefWebIDEInNavbar)) {
       navbarPlacements.push("webide-button");
-    }
-
-    // Place this last, when createWidget is called for pocket, it will
-    // append to the toolbar.
-    if (Services.prefs.getPrefType("extensions.pocket.enabled") != Services.prefs.PREF_INVALID &&
-        Services.prefs.getBoolPref("extensions.pocket.enabled")) {
-        navbarPlacements.push("pocket-button");
     }
 
     this.registerArea(CustomizableUI.AREA_NAVBAR, {

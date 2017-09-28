@@ -151,11 +151,6 @@ this.UITour = {
       query: "#panic-button",
       widgetName: "panic-button",
     }],
-    ["pocket", {
-      allowAdd: true,
-      query: "#pocket-button",
-      widgetName: "pocket-button",
-    }],
     ["privateWindow",  {query: "#privatebrowsing-button"}],
     ["quit",        {query: "#PanelUI-quit"}],
     ["readerMode-urlBar", {query: "#reader-mode-button"}],
@@ -1668,46 +1663,6 @@ this.UITour = {
         popup.addEventListener("popupshown", onPopupShown);
       }
       aWindow.document.getElementById("identity-box").click();
-    } else if (aMenuName == "pocket") {
-      this.getTarget(aWindow, "pocket").then(Task.async(function* onPocketTarget(target) {
-        let widgetGroupWrapper = CustomizableUI.getWidget(target.widgetName);
-        if (widgetGroupWrapper.type != "view" || !widgetGroupWrapper.viewId) {
-          log.error("Can't open the pocket menu without a view");
-          return;
-        }
-        let placement = CustomizableUI.getPlacementOfWidget(target.widgetName);
-        if (!placement || !placement.area) {
-          log.error("Can't open the pocket menu without a placement");
-          return;
-        }
-
-        if (placement.area == CustomizableUI.AREA_PANEL) {
-          // Open the appMenu and wait for it if it's not already opened or showing a subview.
-          yield new Promise((resolve, reject) => {
-            if (aWindow.PanelUI.panel.state != "closed") {
-              if (aWindow.PanelUI.multiView.showingSubView) {
-                reject("A subview is already showing");
-                return;
-              }
-
-              resolve();
-              return;
-            }
-
-            aWindow.PanelUI.panel.addEventListener("popupshown", function onShown() {
-              aWindow.PanelUI.panel.removeEventListener("popupshown", onShown);
-              resolve();
-            });
-
-            aWindow.PanelUI.show();
-          });
-        }
-
-        let widgetWrapper = widgetGroupWrapper.forWindow(aWindow);
-        aWindow.PanelUI.showSubView(widgetGroupWrapper.viewId,
-                                    widgetWrapper.anchor,
-                                    placement.area);
-      })).catch(log.error);
     }
   },
 
