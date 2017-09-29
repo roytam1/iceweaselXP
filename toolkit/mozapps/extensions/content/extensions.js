@@ -3277,14 +3277,7 @@ var gDetailView = {
         );
         document.getElementById("detail-warning-link").hidden = true;
       } else if (!isCorrectlySigned(this._addon)) {
-        this.node.setAttribute("notification", "warning");
-        document.getElementById("detail-warning").textContent = gStrings.ext.formatStringFromName(
-          "details.notification.unsigned", [this._addon.name, gStrings.brandShortName], 2
-        );
-        var warningLink = document.getElementById("detail-warning-link");
-        warningLink.value = gStrings.ext.GetStringFromName("details.notification.unsigned.link");
-        warningLink.href = Services.urlFormatter.formatURLPref("app.support.baseURL") + "unsigned-addons";
-        warningLink.hidden = false;
+        warningLink.hidden = true;
       } else if (this._addon.blocklistState == Ci.nsIBlocklistService.STATE_SOFTBLOCKED) {
         this.node.setAttribute("notification", "warning");
         document.getElementById("detail-warning").textContent = gStrings.ext.formatStringFromName(

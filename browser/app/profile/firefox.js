@@ -73,7 +73,7 @@ pref("extensions.webextensions.base-content-security-policy", "script-src 'self'
 pref("extensions.webextensions.default-content-security-policy", "script-src 'self'; object-src 'self';");
 
 // Require signed add-ons by default
-pref("xpinstall.signatures.required", true);
+pref("xpinstall.signatures.required", false);
 pref("xpinstall.signatures.devInfoURL", "https://wiki.mozilla.org/Addons/Extension_Signing");
 
 // Dictionary download preference

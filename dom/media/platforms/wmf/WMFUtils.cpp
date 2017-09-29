@@ -11,6 +11,7 @@
 #include "mozilla/Logging.h"
 #include "nsThreadUtils.h"
 #include "nsWindowsHelpers.h"
+#include "mozilla/WindowsVersion.h"
 #include "mozilla/CheckedInt.h"
 #include "VideoUtils.h"
 #include <initguid.h>
