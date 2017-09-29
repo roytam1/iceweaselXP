@@ -961,6 +961,15 @@ var gViewController = {
       }
     },
 
+    cmd_pluginCheck: {
+      isEnabled: function() {
+        return true;
+      },
+      doCommand: function() {
+        openURL(Services.urlFormatter.formatURLPref("plugins.update.url"));
+      }
+   },
+ 
     cmd_toggleAutoUpdateDefault: {
       isEnabled() {
         return true;
